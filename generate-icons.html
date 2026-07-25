@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FBA Monitor Icon Generator</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+    canvas { border: 1px solid #ccc; margin: 10px; background: white; }
+    button { padding: 10px 20px; background: #ff9900; border: 0; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+    button:hover { background: #f7bb44; }
+    .row { display: flex; align-items: center; gap: 20px; margin: 15px 0; }
+    h1 { color: #232f3e; }
+  </style>
+</head>
+<body>
+  <h1>🔍 FBA Monitor - Icon Generator</h1>
+  <p>Click the button below. Three PNG files (16, 48, 128 px) will download automatically.</p>
+  <p>Move them into the <code>icons/</code> folder of your extension.</p>
+
+  <div class="row">
+    <canvas id="c16" width="16" height="16"></canvas>
+    <canvas id="c48" width="48" height="48"></canvas>
+    <canvas id="c128" width="128" height="128"></canvas>
+  </div>
+
+  <button onclick="generateAll()">⬇️ Generate & Download Icons</button>
+
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      const s = size;
+
+      // Amazon-orange rounded background
+      ctx.fillStyle = '#FF9900';
+      roundRect(ctx, 0, 0, s, s, s * 0.18);
+      ctx.fill();
+
+      // Dark blue inner circle (Amazon navy)
+      ctx.fillStyle = '#232F3E';
+      ctx.beginPath();
+      ctx.arc(s * 0.5, s * 0.5, s * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+
+      // White magnifying glass
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = Math.max(1, s * 0.06);
+      ctx.lineCap = 'round';
+
+      // Circle of magnifier
+      ctx.beginPath();
+      ctx.arc(s * 0.44, s * 0.44, s * 0.14, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Handle
+      ctx.beginPath();
+      ctx.moveTo(s * 0.55, s * 0.55);
+      ctx.lineTo(s * 0.68, s * 0.68);
+      ctx.stroke();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function download(canvas, filename) {
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      }, 'image/png');
+    }
+
+    function generateAll() {
+      const sizes = [
+        { id: 'c16', size: 16, name: 'icon16.png' },
+        { id: 'c48', size: 48, name: 'icon48.png' },
+        { id: 'c128', size: 128, name: 'icon128.png' }
+      ];
+      sizes.forEach((cfg, i) => {
+        const canvas = document.getElementById(cfg.id);
+        drawIcon(canvas, cfg.size);
+        setTimeout(() => download(canvas, cfg.name), i * 300);
+      });
+    }
+
+    // Draw previews on load
+    window.onload = () => {
+      drawIcon(document.getElementById('c16'), 16);
+      drawIcon(document.getElementById('c48'), 48);
+      drawIcon(document.getElementById('c128'), 128);
+    };
+  </script>
+</body>
+</html>

@@ -9,22 +9,36 @@
     <h1>🔍 FBA Issue Monitor</h1>
     <div class="controls">
       <button id="scanBtn">🔄 Scan Now</button>
-      <button id="exportBtn">💾 Export JSON</button>
+      <button id="exportBtn">💾 Export</button>
       <button id="clearBtn">🗑️ Clear</button>
     </div>
   </div>
-
   <div class="stats" id="stats"></div>
   <div class="status" id="status"></div>
-
   <div class="tabs">
     <button class="tab-btn active" data-filter="active">🟢 Active</button>
     <button class="tab-btn" data-filter="new">🆕 New</button>
     <button class="tab-btn" data-filter="all">📋 All</button>
     <button class="tab-btn" data-filter="resolved">✅ Resolved</button>
   </div>
-
   <div class="findings" id="findings"></div>
+
+  <div id="commentModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📝 Draft Comment</h3>
+        <button id="closeModal">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-info" id="modalInfo"></p>
+        <textarea id="commentText" rows="16"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="copyBtn">📋 Copy</button>
+        <button id="postBtn">🚀 Open Ticket & Auto-Fill</button>
+      </div>
+    </div>
+  </div>
 
   <script src="popup.js"></script>
 </body>

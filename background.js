@@ -1,4 +1,3 @@
-// FBA Monitor - Background v7 (evidence-aware field check)
 const POLL_INTERVAL_MIN = 5;
 const DASHBOARD_ID = "2884899d-54a7-409b-9e88-b7ca4b0416ba";
 const SEARCH_URL = `https://issues.amazon.com/issues/search?q=assignee%3A(nobody)+in%3A(${DASHBOARD_ID})+status%3A(Open)+folderType%3A(Default)&sort=score+desc`;
@@ -16,7 +15,7 @@ async function loadRules() {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create("pollUnassigned", { periodInMinutes: POLL_INTERVAL_MIN });
   chrome.storage.local.set({ findings: {}, previousQueue: [], scanHistory: [], lastScanAt: null });
-  console.log("[FBA Monitor BG v7] Installed.");
+  console.log("[FBA Monitor BG v8] Installed.");
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -28,21 +27,25 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     runScan().then(r => sendResponse(r));
     return true;
   }
+  if (msg.action === "fillCommentInSim") {
+    fillCommentInSim(msg.issueId, msg.commentText)
+      .then(r => sendResponse(r))
+      .catch(e => sendResponse({ success: false, error: e.message }));
+    return true;
+  }
 });
 
 async function runScan() {
-  console.log("[FBA Monitor BG v7] Starting scan...");
+  console.log("[FBA Monitor BG v8] Starting scan...");
   try {
     const tab = await ensureSearchTab();
-    if (!tab) return { success: false, error: "No issues.amazon.com tab available" };
-
+    if (!tab) return { success: false, error: "No SIM tab available" };
     const ready = await waitForContentScript(tab.id, 15000);
-    if (!ready) return { success: false, error: "Content script not responding. Reload the tab (Ctrl+F5)." };
+    if (!ready) return { success: false, error: "Content script not ready. Reload the tab." };
 
     const response = await sendMessageWithRetry(tab.id, {
       action: "performScan", dashboardId: DASHBOARD_ID
     }, 3);
-
     if (!response || !response.success) {
       return { success: false, error: response?.error || "Scan failed" };
     }
@@ -59,23 +62,18 @@ async function runScan() {
     const currentQueueUuids = (response.issues || []).map(i => i.issueId);
     const currentQueueSet = new Set(currentQueueUuids);
 
-    const newUuids      = currentQueueUuids.filter(u => !previousQueueSet.has(u));
-    const stillUuids    = currentQueueUuids.filter(u => previousQueueSet.has(u));
+    const newUuids = currentQueueUuids.filter(u => !previousQueueSet.has(u));
+    const stillUuids = currentQueueUuids.filter(u => previousQueueSet.has(u));
     const resolvedUuids = [...previousQueueSet].filter(u => !currentQueueSet.has(u));
-
-    console.log(`[FBA Monitor BG v7] New: ${newUuids.length}, Still: ${stillUuids.length}, Resolved: ${resolvedUuids.length}`);
 
     for (const issue of (response.issues || [])) {
       const classification = classifier.classify(issue.description);
-
       let fieldCheck = null;
       const cat = classification.status === "CLASSIFIED" ? classification.category :
                   (classification.status === "AMBIGUOUS" ? classification.top2?.[0]?.category : null);
-
       if (cat) {
         fieldCheck = classifier.checkMandatoryFields(
-          issue.description, cat,
-          issue.attachments || [], issue.externalLinks || []
+          issue.description, cat, issue.attachments || [], issue.externalLinks || []
         );
       }
 
@@ -83,20 +81,19 @@ async function runScan() {
       findings[issue.issueId] = {
         issueId: issue.issueId,
         title: issue.title,
+        srTag: issue.srTag,
         creator: issue.creator,
         firstSeenAt: existing?.firstSeenAt || now,
         lastSeenAt: now,
         lastScannedAt: now,
         status: "active",
         isNewInLastScan: !previousQueueSet.has(issue.issueId),
-        classification,
-        fieldCheck,
+        classification, fieldCheck,
         attachments: issue.attachments || [],
         externalLinks: issue.externalLinks || [],
         rawDescription: (issue.description || "").slice(0, 5000)
       };
     }
-
     for (const uuid of resolvedUuids) {
       if (findings[uuid]) {
         findings[uuid].status = "resolved";
@@ -131,25 +128,45 @@ async function runScan() {
         });
       } catch (e) {}
     }
-
     return { success: true, newCount: newUuids.length, activeCount, resolvedCount: resolvedUuids.length };
   } catch (err) {
-    console.error("[FBA Monitor BG v7] Scan failed:", err);
+    console.error("[FBA Monitor BG v8] Scan failed:", err);
     return { success: false, error: err.message };
   }
+}
+
+async function fillCommentInSim(issueId, commentText) {
+  const tabs = await chrome.tabs.query({ url: "https://issues.amazon.com/*" });
+  let tab = tabs[0];
+  const targetUrl = `https://issues.amazon.com/issues/search?q=assignee%3A(nobody)+in%3A(${DASHBOARD_ID})+status%3A(Open)+folderType%3A(Default)&sort=score+desc&selectedDocument=${issueId}`;
+
+  if (!tab) {
+    tab = await chrome.tabs.create({ url: targetUrl, active: true });
+    await waitForTabComplete(tab.id, 15000);
+  } else {
+    await chrome.tabs.update(tab.id, { url: targetUrl, active: true });
+    await waitForTabComplete(tab.id, 10000);
+  }
+  await sleep(2000);
+
+  const ready = await waitForContentScript(tab.id, 10000);
+  if (!ready) return { success: false, error: "Content script not ready" };
+
+  const response = await chrome.tabs.sendMessage(tab.id, {
+    action: "fillComment", issueId, commentText
+  });
+  return response || { success: false, error: "No response" };
 }
 
 async function ensureSearchTab() {
   const searchTabs = await chrome.tabs.query({ url: "https://issues.amazon.com/issues/search*" });
   if (searchTabs.length > 0) return searchTabs[0];
-
   const anyTabs = await chrome.tabs.query({ url: "https://issues.amazon.com/*" });
   if (anyTabs.length > 0) {
     await chrome.tabs.update(anyTabs[0].id, { url: SEARCH_URL });
     await waitForTabComplete(anyTabs[0].id, 10000);
     return await chrome.tabs.get(anyTabs[0].id);
   }
-
   const newTab = await chrome.tabs.create({ url: SEARCH_URL, active: false });
   await waitForTabComplete(newTab.id, 15000);
   return await chrome.tabs.get(newTab.id);
@@ -193,7 +210,7 @@ async function sendMessageWithRetry(tabId, msg, maxRetries) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ============ Evidence-aware Classifier ============
+// ============ Classifier ============
 class IssueClassifierWrapper {
   constructor(rules) { this.rules = rules; }
 
@@ -236,7 +253,7 @@ class IssueClassifierWrapper {
         score += 10; signals.push(`Kw "${kw}" (+10)`);
       }
     }
-    for (const field of cat.mandatoryFields || []) {
+    for (const field of (cat.mandatoryFields || []).concat(cat.optionalFields || [])) {
       const aliases = this.rules.fieldAliases[field] || [field.toLowerCase()];
       for (const a of aliases) {
         if (new RegExp(`\\b${this.esc(a)}\\b`, "i").test(text)) {
@@ -247,75 +264,93 @@ class IssueClassifierWrapper {
     return { category: cat, score, signals };
   }
 
-  // Evidence-aware: checks text, attachments, and external links
   checkMandatoryFields(text, category, attachments = [], externalLinks = []) {
-    const result = { present: [], missing: [], values: {}, evidence: {} };
-    const lines = (text || "").split(/\n+/);
+    const result = {
+      present: [], missing: [],
+      optionalPresent: [], optionalMissing: [],
+      values: {}, evidence: {}
+    };
+    const lines = (text || "").split(/\n/);
 
-    for (const field of category.mandatoryFields || []) {
+    const checkField = (field) => {
       const aliases = this.rules.fieldAliases[field] || [field.toLowerCase()];
       let found = false, value = null, source = null;
 
-      // Source 1: Text label with value (handles numbered prefix, parentheticals, : or - separators)
       for (const alias of aliases) {
-        const re = new RegExp(
-          `^\\s*(?:\\d+[.:]\\s*)?${this.esc(alias)}\\s*(?:\\([^)]*\\))?\\s*[:\\-]\\s*(.+)$`,
-          "im"
+        const labelRe = new RegExp(
+          `^\\s*(?:\\d+[.:]\\s*)?${this.esc(alias)}\\s*(?:\\([^)]*\\))?\\s*[:\\-]\\s*(.*)$`,
+          "i"
         );
-        for (const line of lines) {
-          const m = line.match(re);
-          if (m && m[1] && !this.isPlaceholder(m[1])) {
-            found = true; value = m[1].trim(); source = "text_label"; break;
+        for (let i = 0; i < lines.length; i++) {
+          const m = lines[i].match(labelRe);
+          if (!m) continue;
+          const inlineValue = (m[1] || "").trim();
+          if (inlineValue && !this.isPlaceholder(inlineValue)) {
+            found = true; value = inlineValue; source = "text_label"; break;
           }
+          for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+            const next = lines[j].trim();
+            if (!next) continue;
+            if (this.looksLikeLabel(next)) break;
+            found = true; value = next; source = "text_label_multiline"; break;
+          }
+          if (found) break;
         }
         if (found) break;
       }
 
-      // Source 2: Attachment evidence
       if (!found) {
-        const evidenceType = this.mapFieldToAttachmentType(field);
-        if (evidenceType) {
-          const match = attachments.find(a => a.type === evidenceType);
-          if (match) {
-            found = true; value = `[Attachment: ${match.filename}]`; source = "attachment";
-          }
+        const evType = this.mapFieldToAttachmentType(field);
+        if (evType) {
+          const match = attachments.find(a => a.type === evType);
+          if (match) { found = true; value = `[Attachment: ${match.filename}]`; source = "attachment"; }
         }
       }
-
-      // Source 3: External link evidence
       if (!found) {
         const linkTypes = this.mapFieldToLinkTypes(field);
         if (linkTypes.length > 0) {
           const match = externalLinks.find(l => linkTypes.includes(l.type));
-          if (match) {
-            found = true; value = `[Link: ${match.type}]`; source = "external_link";
-          }
+          if (match) { found = true; value = `[Link: ${match.type}]`; source = "external_link"; }
         }
       }
+      return { found, value, source };
+    };
 
-      if (found) {
+    for (const field of category.mandatoryFields || []) {
+      const r = checkField(field);
+      if (r.found) {
         result.present.push(field);
-        result.values[field] = value;
-        result.evidence[field] = source;
+        result.values[field] = r.value;
+        result.evidence[field] = r.source;
       } else {
         result.missing.push(field);
+      }
+    }
+    for (const field of category.optionalFields || []) {
+      const r = checkField(field);
+      if (r.found) {
+        result.optionalPresent.push(field);
+        result.values[field] = r.value;
+        result.evidence[field] = r.source;
+      } else {
+        result.optionalMissing.push(field);
       }
     }
     return result;
   }
 
+  looksLikeLabel(line) {
+    return /^\d+[.:]\s+[A-Z]/.test(line) ||
+           /^[A-Z][A-Za-z ]{2,40}\s*[:]/.test(line);
+  }
+
   mapFieldToAttachmentType(field) {
     const map = {
-      "Unboxing Video": "video",
-      "Product Images": "image",
-      "POD": "pod",
-      "EPOD": "pod",
-      "Invoice": "invoice",
-      "STN": "pod"
+      "Unboxing Video": "video", "Product Images": "image",
+      "POD": "pod", "EPOD": "pod", "Invoice": "invoice", "STN": "pod"
     };
     return map[field] || null;
   }
-
   mapFieldToLinkTypes(field) {
     const map = {
       "Unboxing Video": ["gdrive", "youtube"],
@@ -325,7 +360,6 @@ class IssueClassifierWrapper {
     };
     return map[field] || [];
   }
-
   isPlaceholder(v) {
     const s = (v || "").trim().toLowerCase();
     return s === "" || s === "n/a" || s === "na" || s === "tbd" || s === "-";

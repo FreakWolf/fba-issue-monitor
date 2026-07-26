@@ -1,5 +1,5 @@
 {
-  "version": "1.2",
+  "version": "1.4",
   "sourceCsv": "FBA_issue_creation_Sheet1.csv",
   "ambiguityThreshold": 15,
   "minConfidenceScore": 40,
@@ -12,10 +12,12 @@
       "primaryIdRegex": "removal\\s*order\\s*id|removal\\s*id",
       "exclusiveKeywords": ["not delivered", "no delivery scan", "delivered to wrong location", "wrong location"],
       "keywords": ["lost in transit", "shipment lost", "not received by seller", "untraced", "cannot be located"],
-      "mandatoryFields": ["Removal Order ID", "Tracking ID", "SPS Case ID", "FC ID", "POD", "FNSKU", "Quantity"],
+      "mandatoryFields": ["Removal Order ID", "Tracking ID", "SPS Case ID", "FC ID", "FNSKU", "Quantity"],
+      "optionalFields": ["POD"],
       "claimWindowDays": 30,
       "claimWindowFrom": "removal_order_completion_date",
-      "templateUrl": "https://issues.amazon.com/issues/create?template=1449c147-2fdb-42eb-b0e2-9f818d0feaa8"
+      "templateUrl": "https://issues.amazon.com/issues/create?template=1449c147-2fdb-42eb-b0e2-9f818d0feaa8",
+      "sampleFormat": "Removal Order ID: [e.g. 260601191A]\nTracking ID (AWB): [carrier tracking number]\nSPS Case ID: [case id from SPS]\nFC ID: [fulfillment center id]\nFNSKU: [e.g. X002EKIG17]\nQuantity: [number of units lost]\n\nOptional (helpful):\n- Copy of POD (Proof of Delivery)\n- FC team confirmation (email/screenshot)"
     },
     {
       "id": "removal_lost_delivered_not_received",
@@ -25,9 +27,11 @@
       "primaryIdRegex": "removal\\s*order\\s*id|removal\\s*id",
       "exclusiveKeywords": ["delivered but not received", "shows delivered"],
       "keywords": ["pod shows delivered", "not received"],
-      "mandatoryFields": ["Removal Order ID", "Tracking ID", "SPS Case ID", "FC ID", "POD", "FNSKU", "Quantity"],
+      "mandatoryFields": ["Removal Order ID", "Tracking ID", "SPS Case ID", "FC ID", "FNSKU", "Quantity"],
+      "optionalFields": ["POD"],
       "claimWindowDays": 7,
-      "claimWindowFrom": "shipment_delivery_date"
+      "claimWindowFrom": "shipment_delivery_date",
+      "sampleFormat": "Removal Order ID: [e.g. 260601191A]\nTracking ID (AWB): [carrier tracking number]\nSPS Case ID: [case id]\nFC ID: [fulfillment center id]\nFNSKU: [e.g. X002EKIG17]\nQuantity: [number of units]\n\nOptional (helpful):\n- Copy of POD showing delivery vs. non-receipt evidence"
     },
     {
       "id": "removal_damaged",
@@ -37,9 +41,11 @@
       "primaryIdRegex": "removal\\s*order\\s*id|removal\\s*id",
       "exclusiveKeywords": ["damaged", "damage", "tampered"],
       "keywords": ["broken", "dented", "crushed"],
-      "mandatoryFields": ["Removal Order ID", "Tracking ID", "FC ID", "Case ID", "FNSKU", "Unboxing Video", "POD", "Product Images"],
+      "mandatoryFields": ["Removal Order ID", "Tracking ID", "FC ID", "Case ID", "FNSKU", "Unboxing Video", "Product Images"],
+      "optionalFields": ["POD"],
       "claimWindowDays": 7,
-      "claimWindowFrom": "shipment_delivery_date"
+      "claimWindowFrom": "shipment_delivery_date",
+      "sampleFormat": "Removal Order ID: [e.g. 260601191A]\nTracking ID (AWB): [carrier tracking number]\nFC ID: [fulfillment center id]\nCase ID: [case id]\nFNSKU / LPN of damaged item: [e.g. X002EKIG17]\nQuantity: [number of damaged units]\n\nMandatory attachments:\n- Unboxing Video (from receiving package to opening each item)\n- Product images: all 6 sides of box + damage close-up\n- Images of tracking labels / packing slips\n\nOptional:\n- Copy of POD noting damage on receipt\n- CCTV recording if available"
     },
     {
       "id": "removal_missing_or_switcheroo",
@@ -49,9 +55,11 @@
       "primaryIdRegex": "removal\\s*order\\s*id|removal\\s*id",
       "exclusiveKeywords": ["missing units", "short shipment", "received short", "switcheroo", "main unit missing", "accessory missing", "wrong item"],
       "keywords": ["missing", "short", "quantity mismatch", "accessory", "wrong product", "different item"],
-      "mandatoryFields": ["Removal Order ID", "Tracking ID", "FC ID", "SPS Case ID", "FNSKU", "Unboxing Video", "POD"],
+      "mandatoryFields": ["Removal Order ID", "Tracking ID", "FC ID", "SPS Case ID", "FNSKU", "Unboxing Video"],
+      "optionalFields": ["POD"],
       "claimWindowDays": 15,
-      "claimWindowFrom": "shipment_delivery_date"
+      "claimWindowFrom": "shipment_delivery_date",
+      "sampleFormat": "1. Issue type: [Missing Accessory / Main Unit Missing / Switcheroo / Short Shipment]\n2. SPS Case ID: [case id from SPS]\n3. Within claim window (Yes/No): Yes\n4. Removal Order ID: [e.g. 260601191A]\n5. FC ID: [fulfillment center id]\n6. Tracking ID (AWB): [carrier tracking]\n7. LPN and FNSKU: [e.g. X002EKIG17 - 1 unit missing]\n8. Quantity: [total units missing]\n9. Unboxing Video: Attached [or paste Google Drive link]\n\nOptional (helpful):\n- Copy of POD"
     },
     {
       "id": "mfi",
@@ -62,6 +70,7 @@
       "exclusiveKeywords": ["missing from inbound", "mfi", "inbound shipment"],
       "keywords": ["shipment received short", "inbound missing", "po invoice"],
       "mandatoryFields": ["Shipment ID", "Merchant ID", "SPS Case ID", "FNSKU", "Quantity"],
+      "optionalFields": [],
       "conditionalFields": [
         { "if": "partnered_carrier", "requires": ["Tracking ID", "STN"] },
         { "if": "non_partnered", "requires": ["EPOD", "STN with FC stamp"] },
@@ -69,7 +78,8 @@
       ],
       "claimWindowDays": 60,
       "claimWindowFrom": "inbound_shipment_delivery",
-      "templateUrl": "https://issues.amazon.com/issues/create?template=6d2c1f00-071c-4980-a73c-8d3e9a822dd0"
+      "templateUrl": "https://issues.amazon.com/issues/create?template=6d2c1f00-071c-4980-a73c-8d3e9a822dd0",
+      "sampleFormat": "Shipment ID: [e.g. FBA15LRHVTK2]\nMerchant ID: [your seller merchant id]\nSPS Case ID: [case id from SPS]\nFNSKU and claim Quantity:\n  - [FNSKU 1] - [X units missing]\n  - [FNSKU 2] - [X units missing]\n\nRequired documents (attach, based on carrier type):\n- If Partnered Carrier: Tracking ID + STN / Delivery Challan\n- If Non-Partnered: EPOD + STN with FC stamp (all pages, full-size scans)\n- If shipment value > INR 50,000: Invoice / Proof of Purchase\n\nPre-submission checks (mark Yes/No):\n- Duplicate check: [Yes/No]\n- Valid POD: [Yes/No]\n- Invoice created with actual ASIN: [Yes/No]\n- Cross match: [Yes/No]"
     },
     {
       "id": "warehouse_lost",
@@ -80,8 +90,10 @@
       "exclusiveKeywords": ["warehouse lost", "inventory adjustment", "reconciliation"],
       "keywords": ["fc lost", "inventory deviation"],
       "mandatoryFields": ["Merchant ID", "SPS Case ID", "FNSKU", "Quantity", "Transaction ID"],
+      "optionalFields": [],
       "claimWindowDays": 60,
-      "claimWindowFrom": "inventory_adjustment_date"
+      "claimWindowFrom": "inventory_adjustment_date",
+      "sampleFormat": "Merchant ID: [your seller merchant id]\nSPS Case ID: [case id from SPS]\nFNSKU: [e.g. X002EKIG17]\nQuantity: [impacted units]\nTransaction ID: [inventory adjustment transaction id]"
     },
     {
       "id": "warehouse_damaged",
@@ -92,8 +104,10 @@
       "exclusiveKeywords": ["warehouse damaged", "fc damaged"],
       "keywords": ["damaged in warehouse", "inventory damaged"],
       "mandatoryFields": ["Merchant ID", "SPS Case ID", "FNSKU", "Quantity", "Transaction ID"],
+      "optionalFields": [],
       "claimWindowDays": 60,
-      "claimWindowFrom": "inventory_adjustment_date"
+      "claimWindowFrom": "inventory_adjustment_date",
+      "sampleFormat": "Merchant ID: [your seller merchant id]\nSPS Case ID: [case id from SPS]\nFNSKU: [e.g. X002EKIG17]\nQuantity: [damaged units]\nTransaction ID: [inventory adjustment transaction id]"
     },
     {
       "id": "order_customer_damaged",
@@ -104,8 +118,10 @@
       "exclusiveKeywords": ["customer damaged", "customer damage return", "returned damaged"],
       "keywords": ["customer return damaged"],
       "mandatoryFields": ["Merchant ID", "SPS Case ID", "Order ID", "Prior Credit Check", "Refund Issued date"],
+      "optionalFields": [],
       "claimWindowDays": 45,
-      "claimWindowFrom": "refund_date"
+      "claimWindowFrom": "refund_date",
+      "sampleFormat": "Merchant ID: [your seller merchant id]\nSPS Case ID: [case id from SPS]\nOrder ID: [e.g. 408-3363912-8812310]\nPrior Credit Check: [Yes/No]\nRefund Issued Date: [DD/MM/YYYY]"
     },
     {
       "id": "order_lost_in_transit",
@@ -116,8 +132,10 @@
       "exclusiveKeywords": ["lost in transit to customer", "not delivered to customer"],
       "keywords": ["customer never received", "carrier lost"],
       "mandatoryFields": ["Merchant ID", "SPS Case ID", "Order ID", "Prior Credit Check", "Refund Issued date"],
+      "optionalFields": [],
       "claimWindowDays": 45,
-      "claimWindowFrom": "refund_date"
+      "claimWindowFrom": "refund_date",
+      "sampleFormat": "Merchant ID: [your seller merchant id]\nSPS Case ID: [case id from SPS]\nOrder ID: [e.g. 408-3363912-8812310]\nPrior Credit Check: [Yes/No]\nRefund Issued Date: [DD/MM/YYYY]"
     },
     {
       "id": "sp_seed_safe_t",
@@ -128,8 +146,10 @@
       "exclusiveKeywords": ["safe-t claim", "safe-t", "leadership escalation", "sp-seed", "sp_seed"],
       "keywords": ["seller refused to accept", "claim dispute", "claim has been denied"],
       "mandatoryFields": ["Case ID", "Seller ID", "Order ID"],
+      "optionalFields": [],
       "action": "REDIRECT",
-      "redirectTo": "SP-SEED / SAFE-T Team"
+      "redirectTo": "SP-SEED / SAFE-T Team",
+      "sampleFormat": "Case ID: [SAFE-T case id]\nSeller ID: [seller merchant id]\nMarketplace ID: [e.g. 44571]\nOrder ID: [e.g. 408-3363912-8812310]\n\nIssue Description: [Brief description of the dispute]\nNote: This ticket type belongs to SP-SEED / SAFE-T Team - please route accordingly."
     },
     {
       "id": "fees_fba",
@@ -139,9 +159,11 @@
       "exclusiveKeywords": ["fba fees", "fees reimbursement", "fee dispute"],
       "keywords": ["fee", "charged incorrectly"],
       "mandatoryFields": [],
+      "optionalFields": [],
       "action": "REDIRECT",
       "redirectTo": "T4 Credit Ops Project IN",
-      "cti": "C: Fulfillment By Amazon / T: Shipping Claims / I: Fees Escalations"
+      "cti": "C: Fulfillment By Amazon / T: Shipping Claims / I: Fees Escalations",
+      "sampleFormat": "FBA Fees issues are handled by T4 Credit Ops Project IN team.\n\nPlease raise this issue using CTI:\nC: Fulfillment By Amazon\nT: Shipping Claims\nI: Fees Escalations\nGroup: T4 Credit Ops Project IN"
     }
   ],
   "fieldAliases": {

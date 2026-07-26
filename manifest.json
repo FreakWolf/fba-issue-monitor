@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FBA Issue Monitor",
-  "version": "1.0.4",
-  "description": "Monitors unassigned Reimbursements India issues, classifies against FBA rules, checks doc completeness.",
+  "version": "1.8.1",
+  "description": "Monitors unassigned Reimbursements India issues, classifies against FBA rules, checks doc completeness, drafts follow-up comments.",
   "permissions": ["storage", "alarms", "notifications", "tabs"],
   "host_permissions": ["https://issues.amazon.com/*"],
   "background": {

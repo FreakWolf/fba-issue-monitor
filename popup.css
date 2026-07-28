@@ -1,4 +1,4 @@
-body { font-family: -apple-system, Segoe UI, sans-serif; margin: 0; width: 540px; max-height: 640px; }
+body { font-family: -apple-system, Segoe UI, sans-serif; margin: 0; width: 560px; max-height: 640px; }
 .header { padding: 12px; background: #232f3e; color: white; }
 .header h1 { margin: 0 0 8px; font-size: 16px; }
 .controls button { margin-right: 6px; padding: 6px 10px; border: 0; border-radius: 4px; background: #ff9900; color: #000; cursor: pointer; font-weight: 600; font-size: 12px; }
@@ -33,22 +33,13 @@ body { font-family: -apple-system, Segoe UI, sans-serif; margin: 0; width: 540px
 .badge.info { background: #e3f2fd; color: #1565c0; }
 .badge.err { background: #ffebee; color: #c62828; }
 .empty { text-align: center; color: #888; padding: 20px; font-size: 12px; }
-
-.card-actions { margin-top: 6px; }
-.draft-btn { padding: 4px 10px; font-size: 11px; font-weight: 600; background: #ff9900; color: #232f3e; border: 0; border-radius: 3px; cursor: pointer; }
-.draft-btn:hover { background: #f7bb44; }
-
-.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.modal.hidden { display: none; }
-.modal-content { background: white; width: 92%; max-width: 500px; max-height: 90vh; overflow: auto; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); display: flex; flex-direction: column; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #232f3e; color: white; border-radius: 8px 8px 0 0; }
-.modal-header h3 { margin: 0; font-size: 14px; }
-.modal-header button { background: transparent; border: 0; color: white; font-size: 22px; cursor: pointer; padding: 0 4px; }
-.modal-body { padding: 12px 16px; }
-.modal-info { font-size: 11px; color: #555; margin: 0 0 8px; line-height: 1.4; }
-.modal-body textarea { width: 100%; box-sizing: border-box; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; }
-.modal-footer { padding: 10px 16px; background: #f7f8fa; display: flex; gap: 8px; justify-content: flex-end; border-radius: 0 0 8px 8px; }
-.modal-footer button { padding: 6px 12px; font-size: 12px; font-weight: 600; border: 0; border-radius: 4px; cursor: pointer; }
-#copyBtn { background: #e0e0e0; color: #232f3e; }
-#postBtn { background: #ff9900; color: #232f3e; }
-#postBtn:hover, #copyBtn:hover { opacity: 0.85; }
+.card-actions { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+.assign-btn { padding: 4px 10px; font-size: 11px; font-weight: 600; background: #146eb4; color: white; border: 0; border-radius: 3px; cursor: pointer; }
+.assign-btn:hover:not(:disabled) { background: #1078c8; }
+.assign-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.oos-btn { padding: 4px 10px; font-size: 11px; font-weight: 600; background: #c62828; color: white; border: 0; border-radius: 3px; cursor: pointer; }
+.oos-btn:hover:not(:disabled) { background: #d32f2f; }
+.oos-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.wiki-btn { padding: 4px 10px; font-size: 11px; font-weight: 600; background: #f57c00; color: white; border: 0; border-radius: 3px; cursor: pointer; }
+.wiki-btn:hover:not(:disabled) { background: #ff9800; }
+.wiki-btn:disabled { opacity: 0.6; cursor: not-allowed; }

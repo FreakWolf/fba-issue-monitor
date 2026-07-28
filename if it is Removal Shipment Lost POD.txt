@@ -3,3 +3,33 @@ if it is Removal Shipment Lost POD and Unboxing Video is not required
 any value can be in the next line 
 
 In removals damaged/switchroo images are required
+
+EASYSHIP/SELLERFLEX/mfnOR SELFSHIP - CATOGRISER AS EF- EXTERNAL FULLFILLMENT
+
+FOR WEIGHT DIMENSSIONS AND FEES RESOLVE IT AS OUT OF SCOPE
+
+`
+Hii Team,
+
+Seller reimbursement team no longer handles any Fees reimbursement’s process. We have already updated the same in our Seller  Reimbursement Escalation wiki:
+https://w.amazon.com/bin/view/IN_Reimbursement_Escalation
+
+For ES:
+
+Easy ship Fee related concerns and/or their Claw back related  SAFE-T issues are out of Seller Reimbursement's scope. Please reach out to following CTI:
+
+C: Easy Ship
+T: Program Problem
+I: Weight Mismatch
+Group: Amazon Easy Ship Program
+
+For FBA/Seller Flex Fees issues:
+
+For escalations, please reach out to the T4 Credit Ops team by using the CTI:
+
+C: Fulfillment By Amazon
+T: Shipping Claims
+I: Fees Escalations
+
+Note: Tickets have to be assigned only to this Group: T4 Credit Ops Project IN.`
+

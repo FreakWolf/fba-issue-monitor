@@ -1,17 +1,28 @@
 {
   "manifest_version": 3,
   "name": "FBA Issue Monitor",
-  "version": "1.8.1",
-  "description": "Monitors unassigned Reimbursements India issues, classifies against FBA rules, checks doc completeness, drafts follow-up comments.",
-  "permissions": ["storage", "alarms", "notifications", "tabs"],
-  "host_permissions": ["https://issues.amazon.com/*"],
+  "version": "1.9.1",
+  "description": "Monitors unassigned Reimbursements India issues, classifies, auto-resolves out-of-scope + wiki-not-followed, auto-assigns complete tickets.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://issues.amazon.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://issues.amazon.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://issues.amazon.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -25,8 +36,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["rules.json"],
-      "matches": ["https://issues.amazon.com/*"]
+      "resources": [
+        "rules.json"
+      ],
+      "matches": [
+        "https://issues.amazon.com/*"
+      ]
     }
   ]
 }

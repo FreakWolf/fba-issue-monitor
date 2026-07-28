@@ -1,6 +1,8 @@
 let currentFilter = "active";
+let rulesData = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
+  rulesData = await fetch(chrome.runtime.getURL("rules.json")).then(r => r.json());
   await render();
 
   document.getElementById("scanBtn").addEventListener("click", async () => {
@@ -29,41 +31,104 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  document.getElementById("findings").addEventListener("click", async (e) => {
-    const btn = e.target.closest(".draft-btn");
-    if (btn) {
-      e.preventDefault(); e.stopPropagation();
-      await openDraftModal(btn.dataset.issueId);
-    }
-  });
-
-  document.getElementById("closeModal").addEventListener("click", closeModal);
-  document.getElementById("copyBtn").addEventListener("click", async () => {
-    const text = document.getElementById("commentText").value;
-    await navigator.clipboard.writeText(text);
-    document.getElementById("copyBtn").textContent = "✅ Copied!";
-    setTimeout(() => document.getElementById("copyBtn").textContent = "📋 Copy", 2000);
-  });
-  document.getElementById("postBtn").addEventListener("click", async () => {
-    const issueId = document.getElementById("commentModal").dataset.issueId;
-    const commentText = document.getElementById("commentText").value;
-    document.getElementById("postBtn").textContent = "⏳ Opening...";
-    const res = await chrome.runtime.sendMessage({
-      action: "fillCommentInSim", issueId, commentText
-    });
-    if (res.success) {
-      document.getElementById("postBtn").textContent = "✅ Drafted in SIM";
-      setTimeout(closeModal, 2000);
-    } else {
-      document.getElementById("postBtn").textContent = "❌ " + (res.error || "Failed");
-    }
-  });
+  document.getElementById("findings").addEventListener("click", handleActionClick);
 });
+
+async function handleActionClick(e) {
+  const btn = e.target.closest("button[data-action-type]");
+  if (!btn) return;
+  e.preventDefault(); e.stopPropagation();
+  const issueId = btn.dataset.issueId;
+  const actionType = btn.dataset.actionType;
+  const { findings = {} } = await chrome.storage.local.get(["findings"]);
+  const finding = findings[issueId];
+  if (!finding) return;
+
+  if (actionType === "assign") {
+    const assignee = btn.dataset.assignee;
+    if (!confirm(`Assign this ticket to ${assignee}?`)) return;
+    btn.textContent = "⏳ Assigning..."; btn.disabled = true;
+    const res = await chrome.runtime.sendMessage({ action: "assignIssueBg", issueId, username: assignee });
+    btn.textContent = res.success ? "✅ Assigned" : "❌ " + (res.error || "Failed");
+    if (!res.success) btn.disabled = false;
+    return;
+  }
+
+  if (actionType === "out_of_scope") {
+    const template = rulesData.outOfScopeCommentTemplate;
+    const labelName = rulesData.labels?.outOfScope || "Issue Not Handled by SR";
+    if (!confirm(`Auto-resolve as OUT OF SCOPE?\n\n1. Post redirect comment\n2. Auto-submit comment\n3. Apply label: "${labelName}"\n4. Fill & Submit Resolve Modal (Fees Charged in Error / Issue Not handled by SR)\n\nProceed?`)) return;
+    btn.textContent = "⏳ Auto-resolving..."; btn.disabled = true;
+    const res = await chrome.runtime.sendMessage({
+      action: "fullAutoResolveBg", issueId,
+      options: {
+        commentText: template,
+        labelName,
+        autoSubmit: true,
+        markResolved: true,
+        resolveConfig: {
+          actionType: "out_of_scope",
+          summary: "out of scope",
+          bucket: "Fees Charged in Error",
+          claimStatus: "Denied",
+          subBucket: "Issue Not handled by SR",
+          reimbursementAmount: "0"
+        }
+      }
+    });
+    btn.textContent = res.success ? "✅ Resolved (Out of Scope)" : "⚠️ " + (res.message || res.error);
+    if (!res.success) btn.disabled = false;
+    return;
+  }
+
+  if (actionType === "wiki_not_followed") {
+    const commentText = generateWikiNotFollowedComment(finding);
+    const labelName = rulesData.labels?.wikiNotFollowed || "Wiki/Template not followed";
+
+    if (!confirm(`Auto-resolve as WIKI NOT FOLLOWED?\n\n1. Post format-request comment\n2. Auto-submit comment\n3. Apply label: "${labelName}"\n4. Fill & Submit Resolve Modal (General Enquiry / Invalid)\n\nNO assignment.\n\nProceed?`)) return;
+    btn.textContent = "⏳ Auto-resolving..."; btn.disabled = true;
+    const res = await chrome.runtime.sendMessage({
+      action: "fullAutoResolveBg", issueId,
+      options: {
+        commentText,
+        labelName,
+        autoSubmit: true,
+        markResolved: true,
+        resolveConfig: {
+          actionType: "wiki_not_followed",
+          summary: "wiki not followed",
+          bucket: "General Enquiry",
+          claimStatus: "Denied",
+          subBucket: "Invalid (Incomplete Information)",
+          reimbursementAmount: "0"
+        }
+      }
+    });
+    btn.textContent = res.success ? "✅ Resolved (Wiki N/F)" : "⚠️ " + (res.message || res.error);
+    if (!res.success) btn.disabled = false;
+    return;
+  }
+}
+
+function generateWikiNotFollowedComment(finding) {
+  const cls = finding.classification || {};
+  const category = cls.status === "CLASSIFIED" ? cls.category : cls.top2?.[0]?.category;
+  const missing = finding.fieldCheck?.missing || [];
+  const sampleFormat = category?.sampleFormat || "[Sample format not available]";
+  const claimDays = category?.claimWindowDays || "N/A";
+  const claimFrom = (category?.claimWindowFrom || "event date").replace(/_/g, " ");
+  const template = rulesData.wikiNotFollowedCommentTemplate || "";
+  return template
+    .replace("{MISSING_FIELDS}", missing.map(f => `• ${f}`).join("\n"))
+    .replace("{SAMPLE_FORMAT}", sampleFormat)
+    .replace("{CLAIM_WINDOW_DAYS}", claimDays)
+    .replace("{CLAIM_WINDOW_FROM}", claimFrom)
+    .replace("{TITLE}", finding.title || "");
+}
 
 async function render() {
   const { findings = {}, lastScanAt } = await chrome.storage.local.get(["findings", "lastScanAt"]);
   const list = Object.values(findings);
-
   const active = list.filter(f => f.status === "active");
   const newOnes = list.filter(f => f.isNewInLastScan);
   const resolved = list.filter(f => f.status === "resolved");
@@ -73,7 +138,6 @@ async function render() {
     <div class="stat"><span class="stat-num">${newOnes.length}</span><span class="stat-lbl">🆕 New</span></div>
     <div class="stat"><span class="stat-num">${resolved.length}</span><span class="stat-lbl">✅ Resolved</span></div>
   `;
-
   if (!document.getElementById("status").textContent) {
     setStatus(`Last scan: ${lastScanAt ? new Date(lastScanAt).toLocaleString() : "Never"}`);
   }
@@ -83,7 +147,6 @@ async function render() {
   else if (currentFilter === "new") filtered = newOnes;
   else if (currentFilter === "resolved") filtered = resolved;
   else filtered = list;
-
   filtered.sort((a, b) => new Date(b.lastSeenAt) - new Date(a.lastSeenAt));
 
   const container = document.getElementById("findings");
@@ -110,23 +173,16 @@ function renderCard(f) {
   else if (f.isNewInLastScan) statusIcon = "🆕";
 
   let clsBadge = "", categoryName = "—";
-  if (cls.status === "CLASSIFIED") {
-    clsBadge = `<span class="badge ok">CLASSIFIED (${cls.score})</span>`;
-    categoryName = cls.category.name;
-  } else if (cls.status === "AMBIGUOUS") {
-    clsBadge = `<span class="badge warn">AMBIGUOUS</span>`;
-    categoryName = cls.top2.map(t => `${t.category.name} (${t.score})`).join(" ↔ ");
-  } else if (cls.status === "REDIRECT") {
-    clsBadge = `<span class="badge info">REDIRECT</span>`;
-    categoryName = cls.category.name;
-  } else {
-    clsBadge = `<span class="badge err">UNCLASSIFIABLE</span>`;
-  }
+  if (cls.status === "CLASSIFIED") { clsBadge = `<span class="badge ok">CLASSIFIED (${cls.score})</span>`; categoryName = cls.category.name; }
+  else if (cls.status === "AMBIGUOUS") { clsBadge = `<span class="badge warn">AMBIGUOUS</span>`; categoryName = cls.top2.map(t => `${t.category.name} (${t.score})`).join(" ↔ "); }
+  else if (cls.status === "REDIRECT") { clsBadge = `<span class="badge info">REDIRECT</span>`; categoryName = cls.category.name; }
+  else { clsBadge = `<span class="badge err">UNCLASSIFIABLE</span>`; }
+
+  const action = decideAction(cls, fc);
 
   const missingLine = fc.missing.length > 0
     ? `<div class="miss">⚠️ Missing: ${fc.missing.join(", ")}</div>`
     : (fc.present.length > 0 ? `<div class="ok-line">✅ All mandatory fields present</div>` : "");
-
   const optionalLine = fc.optionalMissing && fc.optionalMissing.length > 0
     ? `<div class="opt">💡 Recommended: ${fc.optionalMissing.join(", ")}</div>` : "";
 
@@ -135,7 +191,6 @@ function renderCard(f) {
   const podCount = atts.filter(a => a.type === "pod").length;
   const pdfCount = atts.filter(a => a.type === "pdf" || a.type === "invoice").length;
   const gdriveCount = links.filter(l => l.type === "gdrive").length;
-
   const evidenceParts = [];
   if (imgCount) evidenceParts.push(`🖼️ ${imgCount}`);
   if (vidCount) evidenceParts.push(`🎥 ${vidCount}`);
@@ -145,14 +200,11 @@ function renderCard(f) {
   const evidenceLine = evidenceParts.length > 0 ? `<div class="evidence">${evidenceParts.join(" • ")}</div>` : "";
 
   const inQueueFor = f.firstSeenAt ? timeAgo(f.firstSeenAt) : "—";
-  const timeInfo = f.status === "resolved"
-    ? ` • Resolved ${timeAgo(f.resolvedAt)}`
-    : ` • In queue ${inQueueFor}`;
+  const timeInfo = f.status === "resolved" ? ` • Resolved ${timeAgo(f.resolvedAt)}` : ` • In queue ${inQueueFor}`;
 
-  const showDraftBtn = fc.missing && fc.missing.length > 0 &&
-    (cls.status === "CLASSIFIED" || cls.status === "AMBIGUOUS");
-  const draftBtnHtml = showDraftBtn
-    ? `<div class="card-actions"><button class="draft-btn" data-issue-id="${f.issueId}">📝 Draft Comment</button></div>`
+  const categoryLine = action?.assignee ? `${esc(categoryName)} • 👤 ${action.assignee}` : esc(categoryName);
+  const actionBtnHtml = action
+    ? `<button class="${action.cssClass}" data-issue-id="${f.issueId}" data-action-type="${action.type}"${action.assignee ? ` data-assignee="${action.assignee}"` : ""}>${action.label}</button>`
     : "";
 
   div.innerHTML = `
@@ -162,78 +214,35 @@ function renderCard(f) {
       ${clsBadge}
     </div>
     <div class="meta">${esc(f.creator || "Unknown")}${timeInfo}</div>
-    <div class="cat">${esc(categoryName)}</div>
+    <div class="cat">${categoryLine}</div>
     ${missingLine}
     ${optionalLine}
     ${evidenceLine}
-    ${draftBtnHtml}
+    ${actionBtnHtml ? `<div class="card-actions">${actionBtnHtml}</div>` : ""}
   `;
   return div;
 }
 
-async function openDraftModal(issueId) {
-  const { findings = {} } = await chrome.storage.local.get(["findings"]);
-  const finding = findings[issueId];
-  if (!finding) return;
-
-  const commentText = generateCommentText(finding);
-  const modal = document.getElementById("commentModal");
-  modal.dataset.issueId = issueId;
-  document.getElementById("commentText").value = commentText;
-  document.getElementById("modalInfo").innerHTML =
-    `<strong>${esc(finding.title)}</strong><br>Missing: ${(finding.fieldCheck?.missing || []).join(", ") || "None"}`;
-  document.getElementById("postBtn").textContent = "🚀 Open Ticket & Auto-Fill";
-  document.getElementById("copyBtn").textContent = "📋 Copy";
-  modal.classList.remove("hidden");
-}
-
-function closeModal() {
-  document.getElementById("commentModal").classList.add("hidden");
-}
-
-function generateCommentText(finding) {
-  const creator = finding.creator && finding.creator !== "Unknown" ? finding.creator : "Team";
-  const category = finding.classification.category?.name || "reimbursement";
-  const missing = finding.fieldCheck?.missing || [];
-  const optionalMissing = finding.fieldCheck?.optionalMissing || [];
-  const window = finding.classification.category?.claimWindowDays;
-  const windowFrom = finding.classification.category?.claimWindowFrom;
-  const sampleFormat = finding.classification.category?.sampleFormat;
-
-  let text = `Hi ${creator},\n\n`;
-  text += `To process this "${category}" claim, we need the following mandatory details which are currently missing or unclear:\n\n`;
-  missing.forEach(f => text += `• ${f}\n`);
-
-  if (optionalMissing.length > 0) {
-    text += `\nRecommended (helpful but not blocking):\n`;
-    optionalMissing.forEach(f => text += `• ${f}\n`);
+function decideAction(cls, fc) {
+  if (cls.status === "REDIRECT" && cls.category?.useOutOfScopeTemplate) {
+    return { type: "out_of_scope", label: "🚫 Auto-Resolve Out of Scope", cssClass: "oos-btn" };
   }
-  text += `\n`;
-
-  if (sampleFormat) {
-    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `📋 SAMPLE FORMAT for future submissions\n`;
-    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    text += `Please use this format when raising ${category} issues:\n\n`;
-    text += sampleFormat;
-    text += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  // If AMBIGUOUS but BOTH top categories are out-of-scope, still show out-of-scope button
+  if (cls.status === "AMBIGUOUS" && cls.top2?.length >= 2) {
+    const bothOutOfScope = cls.top2.every(t => t.category?.useOutOfScopeTemplate);
+    if (bothOutOfScope) {
+      return { type: "out_of_scope", label: "🚫 Auto-Resolve Out of Scope", cssClass: "oos-btn" };
+    }
   }
-
-  text += `How to provide the missing details:\n`;
-  text += `- Reply to this ticket as a comment (following the format above)\n`;
-  text += `- Attach documents/images/videos directly to the ticket\n`;
-  text += `- Share Google Drive / YouTube link for large video files\n\n`;
-
-  if (window && windowFrom) {
-    text += `⚠️ IMPORTANT: Claim window is ${window} days from ${windowFrom.replace(/_/g, ' ')}. Please submit within this window to avoid claim denial.\n\n`;
+  const hasCompleteDetails = fc.missing && fc.missing.length === 0 && fc.present && fc.present.length > 0;
+  const category = cls.status === "CLASSIFIED" ? cls.category : (cls.status === "AMBIGUOUS" ? cls.top2?.[0]?.category : null);
+  if ((cls.status === "CLASSIFIED" || cls.status === "AMBIGUOUS") && !hasCompleteDetails && fc.missing && fc.missing.length > 0) {
+    return { type: "wiki_not_followed", label: "🏷️ Resolve - Wiki Not Followed", cssClass: "wiki-btn" };
   }
-
-  text += `Reference: ${finding.title}\n`;
-  if (finding.srTag) text += `SR Tag: ${finding.srTag}\n`;
-  text += `Category: ${category}\n\n`;
-  text += `Following this format going forward will help us process your claims faster.\n\n`;
-  text += `Thanks for your cooperation!\n`;
-  return text;
+  if ((cls.status === "CLASSIFIED" || cls.status === "AMBIGUOUS") && hasCompleteDetails && category?.assignee) {
+    return { type: "assign", label: `🎯 Assign to ${category.assignee}`, cssClass: "assign-btn", assignee: category.assignee };
+  }
+  return null;
 }
 
 function timeAgo(iso) {
@@ -244,9 +253,7 @@ function timeAgo(iso) {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
 }
-
 function setStatus(t) { document.getElementById("status").textContent = t; }
-
 async function exportJson() {
   const store = await chrome.storage.local.get(["findings", "scanHistory", "lastScanAt"]);
   const blob = new Blob([JSON.stringify(store, null, 2)], { type: "application/json" });
@@ -255,7 +262,6 @@ async function exportJson() {
   a.href = url; a.download = `fba-findings-${Date.now()}.json`; a.click();
   URL.revokeObjectURL(url);
 }
-
 function esc(s) {
   return String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }

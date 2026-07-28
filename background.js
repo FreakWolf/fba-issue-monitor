@@ -4,7 +4,6 @@ const SEARCH_URL = `https://issues.amazon.com/issues/search?q=assignee%3A(nobody
 const MAX_HISTORY = 100;
 
 let rulesCache = null;
-
 async function loadRules() {
   if (rulesCache) return rulesCache;
   const res = await fetch(chrome.runtime.getURL("rules.json"));
@@ -15,7 +14,7 @@ async function loadRules() {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create("pollUnassigned", { periodInMinutes: POLL_INTERVAL_MIN });
   chrome.storage.local.set({ findings: {}, previousQueue: [], scanHistory: [], lastScanAt: null });
-  console.log("[FBA Monitor BG v8] Installed.");
+  console.log("[FBA Monitor BG v8.7] Installed.");
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
@@ -23,45 +22,36 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.action === "manualScan") {
-    runScan().then(r => sendResponse(r));
+  if (msg.action === "manualScan") { runScan().then(r => sendResponse(r)); return true; }
+  if (msg.action === "assignIssueBg") {
+    assignIssueBg(msg.issueId, msg.username).then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
     return true;
   }
-  if (msg.action === "fillCommentInSim") {
-    fillCommentInSim(msg.issueId, msg.commentText)
-      .then(r => sendResponse(r))
-      .catch(e => sendResponse({ success: false, error: e.message }));
+  if (msg.action === "fullAutoResolveBg") {
+    fullAutoResolveBg(msg.issueId, msg.options).then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
     return true;
   }
 });
 
 async function runScan() {
-  console.log("[FBA Monitor BG v8] Starting scan...");
+  console.log("[FBA Monitor BG v8.7] Starting scan...");
   try {
     const tab = await ensureSearchTab();
     if (!tab) return { success: false, error: "No SIM tab available" };
     const ready = await waitForContentScript(tab.id, 15000);
     if (!ready) return { success: false, error: "Content script not ready. Reload the tab." };
-
-    const response = await sendMessageWithRetry(tab.id, {
-      action: "performScan", dashboardId: DASHBOARD_ID
-    }, 3);
-    if (!response || !response.success) {
-      return { success: false, error: response?.error || "Scan failed" };
-    }
+    const response = await sendMessageWithRetry(tab.id, { action: "performScan", dashboardId: DASHBOARD_ID }, 3);
+    if (!response || !response.success) return { success: false, error: response?.error || "Scan failed" };
 
     const now = new Date().toISOString();
     const rules = await loadRules();
     const classifier = new IssueClassifierWrapper(rules);
-
     const store = await chrome.storage.local.get(["findings", "previousQueue", "scanHistory"]);
     const findings = store.findings || {};
     const previousQueueSet = new Set(store.previousQueue || []);
     const scanHistory = store.scanHistory || [];
-
     const currentQueueUuids = (response.issues || []).map(i => i.issueId);
     const currentQueueSet = new Set(currentQueueUuids);
-
     const newUuids = currentQueueUuids.filter(u => !previousQueueSet.has(u));
     const stillUuids = currentQueueUuids.filter(u => previousQueueSet.has(u));
     const resolvedUuids = [...previousQueueSet].filter(u => !currentQueueSet.has(u));
@@ -72,74 +62,64 @@ async function runScan() {
       const cat = classification.status === "CLASSIFIED" ? classification.category :
                   (classification.status === "AMBIGUOUS" ? classification.top2?.[0]?.category : null);
       if (cat) {
-        fieldCheck = classifier.checkMandatoryFields(
-          issue.description, cat, issue.attachments || [], issue.externalLinks || []
-        );
+        fieldCheck = classifier.checkMandatoryFields(issue.description, cat, issue.attachments || [], issue.externalLinks || []);
       }
-
       const existing = findings[issue.issueId];
       findings[issue.issueId] = {
-        issueId: issue.issueId,
-        title: issue.title,
-        srTag: issue.srTag,
-        creator: issue.creator,
-        firstSeenAt: existing?.firstSeenAt || now,
-        lastSeenAt: now,
-        lastScannedAt: now,
-        status: "active",
-        isNewInLastScan: !previousQueueSet.has(issue.issueId),
+        issueId: issue.issueId, title: issue.title, srTag: issue.srTag, creator: issue.creator,
+        firstSeenAt: existing?.firstSeenAt || now, lastSeenAt: now, lastScannedAt: now,
+        status: "active", isNewInLastScan: !previousQueueSet.has(issue.issueId),
         classification, fieldCheck,
-        attachments: issue.attachments || [],
-        externalLinks: issue.externalLinks || [],
+        attachments: issue.attachments || [], externalLinks: issue.externalLinks || [],
         rawDescription: (issue.description || "").slice(0, 5000)
       };
     }
     for (const uuid of resolvedUuids) {
-      if (findings[uuid]) {
-        findings[uuid].status = "resolved";
-        findings[uuid].resolvedAt = now;
-        findings[uuid].isNewInLastScan = false;
-      }
+      if (findings[uuid]) { findings[uuid].status = "resolved"; findings[uuid].resolvedAt = now; findings[uuid].isNewInLastScan = false; }
     }
     for (const uuid of stillUuids) {
       if (findings[uuid]) findings[uuid].isNewInLastScan = false;
     }
-
-    scanHistory.push({
-      scanAt: now, activeCount: currentQueueUuids.length,
-      newCount: newUuids.length, resolvedCount: resolvedUuids.length
-    });
+    scanHistory.push({ scanAt: now, activeCount: currentQueueUuids.length, newCount: newUuids.length, resolvedCount: resolvedUuids.length });
     if (scanHistory.length > MAX_HISTORY) scanHistory.shift();
-
-    await chrome.storage.local.set({
-      findings, previousQueue: currentQueueUuids, scanHistory, lastScanAt: now
-    });
+    await chrome.storage.local.set({ findings, previousQueue: currentQueueUuids, scanHistory, lastScanAt: now });
 
     const activeCount = currentQueueUuids.length;
     chrome.action.setBadgeText({ text: activeCount > 0 ? String(activeCount) : "" });
     chrome.action.setBadgeBackgroundColor({ color: newUuids.length > 0 ? "#d13212" : "#146eb4" });
-
     if (newUuids.length > 0) {
       try {
-        chrome.notifications.create({
-          type: "basic", iconUrl: "icons/icon128.png",
-          title: `FBA Monitor: ${newUuids.length} NEW`,
-          message: `${activeCount} active. ${resolvedUuids.length} resolved.`
-        });
+        chrome.notifications.create({ type: "basic", iconUrl: "icons/icon128.png",
+          title: `FBA Monitor: ${newUuids.length} NEW`, message: `${activeCount} active. ${resolvedUuids.length} resolved.` });
       } catch (e) {}
     }
     return { success: true, newCount: newUuids.length, activeCount, resolvedCount: resolvedUuids.length };
   } catch (err) {
-    console.error("[FBA Monitor BG v8] Scan failed:", err);
+    console.error("[FBA Monitor BG v8.7] Scan failed:", err);
     return { success: false, error: err.message };
   }
 }
 
-async function fillCommentInSim(issueId, commentText) {
+async function assignIssueBg(issueId, username) {
+  const tab = await navigateToIssue(issueId);
+  if (!tab) return { success: false, error: "Cannot open SIM tab" };
+  const ready = await waitForContentScript(tab.id, 10000);
+  if (!ready) return { success: false, error: "Content script not ready" };
+  return await chrome.tabs.sendMessage(tab.id, { action: "assignIssue", issueId, username });
+}
+
+async function fullAutoResolveBg(issueId, options) {
+  const tab = await navigateToIssue(issueId);
+  if (!tab) return { success: false, error: "Cannot open SIM tab" };
+  const ready = await waitForContentScript(tab.id, 10000);
+  if (!ready) return { success: false, error: "Content script not ready" };
+  return await chrome.tabs.sendMessage(tab.id, { action: "fullAutoResolve", issueId, options });
+}
+
+async function navigateToIssue(issueId) {
   const tabs = await chrome.tabs.query({ url: "https://issues.amazon.com/*" });
   let tab = tabs[0];
   const targetUrl = `https://issues.amazon.com/issues/search?q=assignee%3A(nobody)+in%3A(${DASHBOARD_ID})+status%3A(Open)+folderType%3A(Default)&sort=score+desc&selectedDocument=${issueId}`;
-
   if (!tab) {
     tab = await chrome.tabs.create({ url: targetUrl, active: true });
     await waitForTabComplete(tab.id, 15000);
@@ -147,15 +127,8 @@ async function fillCommentInSim(issueId, commentText) {
     await chrome.tabs.update(tab.id, { url: targetUrl, active: true });
     await waitForTabComplete(tab.id, 10000);
   }
-  await sleep(2000);
-
-  const ready = await waitForContentScript(tab.id, 10000);
-  if (!ready) return { success: false, error: "Content script not ready" };
-
-  const response = await chrome.tabs.sendMessage(tab.id, {
-    action: "fillComment", issueId, commentText
-  });
-  return response || { success: false, error: "No response" };
+  await sleep(2500);
+  return tab;
 }
 
 async function ensureSearchTab() {
@@ -201,104 +174,79 @@ async function waitForContentScript(tabId, timeout) {
 async function sendMessageWithRetry(tabId, msg, maxRetries) {
   for (let i = 0; i < maxRetries; i++) {
     try { return await chrome.tabs.sendMessage(tabId, msg); }
-    catch (e) {
-      if (i === maxRetries - 1) throw e;
-      await sleep(1000);
-    }
+    catch (e) { if (i === maxRetries - 1) throw e; await sleep(1000); }
   }
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ============ Classifier ============
 class IssueClassifierWrapper {
   constructor(rules) { this.rules = rules; }
-
   classify(text) {
     const normalized = (text || "").toLowerCase();
     const scores = this.rules.categories.map(cat => this.scoreCategory(cat, normalized));
     scores.sort((a, b) => b.score - a.score);
     const top = scores[0], second = scores[1];
-
     if (top.category.action === "REDIRECT" && top.score >= 30) {
-      return { status: "REDIRECT", category: top.category, score: top.score,
-               message: `${top.category.parent} → ${top.category.redirectTo || 'external team'}`,
-               cti: top.category.cti };
+      return { status: "REDIRECT", category: top.category, score: top.score, message: `${top.category.parent} → ${top.category.redirectTo || 'external team'}` };
     }
     if (second && (top.score - second.score) < this.rules.ambiguityThreshold) {
       return { status: "AMBIGUOUS",
-        top2: [{ category: top.category, score: top.score, signals: top.signals },
-               { category: second.category, score: second.score, signals: second.signals }],
+        top2: [{ category: top.category, score: top.score, signals: top.signals }, { category: second.category, score: second.score, signals: second.signals }],
         message: `Ambiguous: ${top.category.name} (${top.score}) vs ${second.category.name} (${second.score})` };
     }
     if (top.score < this.rules.minConfidenceScore) {
-      return { status: "UNCLASSIFIABLE", topGuess: { category: top.category, score: top.score, signals: top.signals },
-               message: "Below confidence threshold." };
+      return { status: "UNCLASSIFIABLE", topGuess: { category: top.category, score: top.score, signals: top.signals }, message: "Below threshold." };
     }
     return { status: "CLASSIFIED", category: top.category, score: top.score, signals: top.signals };
   }
-
   scoreCategory(cat, text) {
     let score = 0; const signals = [];
     if (cat.primaryIdRegex && new RegExp(cat.primaryIdRegex, "i").test(text)) {
       score += 50; signals.push(`Primary ID "${cat.primaryIdField}" (+50)`);
     }
     for (const kw of cat.exclusiveKeywords || []) {
-      if (new RegExp(`\\b${this.esc(kw)}\\b`, "i").test(text)) {
-        score += 15; signals.push(`ExclKw "${kw}" (+15)`);
-      }
+      const flex = this.esc(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}\\b`, "i").test(text)) { score += 15; signals.push(`ExclKw "${kw}" (+15)`); }
     }
     for (const kw of cat.keywords || []) {
-      if (new RegExp(`\\b${this.esc(kw)}\\b`, "i").test(text)) {
-        score += 10; signals.push(`Kw "${kw}" (+10)`);
-      }
+      const flex = this.esc(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}\\b`, "i").test(text)) { score += 10; signals.push(`Kw "${kw}" (+10)`); }
     }
     for (const field of (cat.mandatoryFields || []).concat(cat.optionalFields || [])) {
       const aliases = this.rules.fieldAliases[field] || [field.toLowerCase()];
       for (const a of aliases) {
-        if (new RegExp(`\\b${this.esc(a)}\\b`, "i").test(text)) {
-          score += 5; signals.push(`Field "${field}" (+5)`); break;
-        }
+        const flex = this.esc(a).replace(/\s+/g, "\\s+");
+        if (new RegExp(`\\b${flex}\\b`, "i").test(text)) { score += 5; signals.push(`Field "${field}" (+5)`); break; }
       }
     }
     return { category: cat, score, signals };
   }
-
   checkMandatoryFields(text, category, attachments = [], externalLinks = []) {
-    const result = {
-      present: [], missing: [],
-      optionalPresent: [], optionalMissing: [],
-      values: {}, evidence: {}
-    };
+    const result = { present: [], missing: [], optionalPresent: [], optionalMissing: [], values: {}, evidence: {} };
     const lines = (text || "").split(/\n/);
-
     const checkField = (field) => {
       const aliases = this.rules.fieldAliases[field] || [field.toLowerCase()];
       let found = false, value = null, source = null;
-
       for (const alias of aliases) {
-        const labelRe = new RegExp(
-          `^\\s*(?:\\d+[.:]\\s*)?${this.esc(alias)}\\s*(?:\\([^)]*\\))?\\s*[:\\-]\\s*(.*)$`,
-          "i"
-        );
+        const flexAlias = this.esc(alias).replace(/\s+/g, "\\s+");
+        const labelRe = new RegExp(`^\\s*(?:\\d+\\s*[.:\\-]\\s*)?${flexAlias}\\s*(?:\\([^)]*\\))?\\s*[:\\-=\\u2013\\u2014]\\s*(.*)$`, "i");
         for (let i = 0; i < lines.length; i++) {
           const m = lines[i].match(labelRe);
           if (!m) continue;
           const inlineValue = (m[1] || "").trim();
-          if (inlineValue && !this.isPlaceholder(inlineValue)) {
-            found = true; value = inlineValue; source = "text_label"; break;
-          }
+          if (inlineValue && !this.isPlaceholder(inlineValue)) { found = true; value = inlineValue; source = "text_label"; break; }
           for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
             const next = lines[j].trim();
             if (!next) continue;
             if (this.looksLikeLabel(next)) break;
+            if (this.isPlaceholder(next)) continue;
             found = true; value = next; source = "text_label_multiline"; break;
           }
           if (found) break;
         }
         if (found) break;
       }
-
       if (!found) {
         const evType = this.mapFieldToAttachmentType(field);
         if (evType) {
@@ -315,54 +263,32 @@ class IssueClassifierWrapper {
       }
       return { found, value, source };
     };
-
     for (const field of category.mandatoryFields || []) {
       const r = checkField(field);
-      if (r.found) {
-        result.present.push(field);
-        result.values[field] = r.value;
-        result.evidence[field] = r.source;
-      } else {
-        result.missing.push(field);
-      }
+      if (r.found) { result.present.push(field); result.values[field] = r.value; result.evidence[field] = r.source; }
+      else result.missing.push(field);
     }
     for (const field of category.optionalFields || []) {
       const r = checkField(field);
-      if (r.found) {
-        result.optionalPresent.push(field);
-        result.values[field] = r.value;
-        result.evidence[field] = r.source;
-      } else {
-        result.optionalMissing.push(field);
-      }
+      if (r.found) { result.optionalPresent.push(field); result.values[field] = r.value; result.evidence[field] = r.source; }
+      else result.optionalMissing.push(field);
     }
     return result;
   }
-
   looksLikeLabel(line) {
-    return /^\d+[.:]\s+[A-Z]/.test(line) ||
-           /^[A-Z][A-Za-z ]{2,40}\s*[:]/.test(line);
+    return /^\d+\s*[.:\-]\s+[A-Z]/i.test(line) || /^[A-Za-z][A-Za-z0-9 _/\-]{2,40}\s*[:\-=\u2013\u2014]\s*/i.test(line);
   }
-
   mapFieldToAttachmentType(field) {
-    const map = {
-      "Unboxing Video": "video", "Product Images": "image",
-      "POD": "pod", "EPOD": "pod", "Invoice": "invoice", "STN": "pod"
-    };
+    const map = { "Unboxing Video": "video", "Product Images": "image", "POD": "pod", "EPOD": "pod", "Invoice": "invoice", "STN": "pod" };
     return map[field] || null;
   }
   mapFieldToLinkTypes(field) {
-    const map = {
-      "Unboxing Video": ["gdrive", "youtube"],
-      "Product Images": ["gdrive", "amazon_attachment"],
-      "POD": ["amazon_attachment"],
-      "Invoice": ["gdrive", "amazon_attachment"]
-    };
+    const map = { "Unboxing Video": ["gdrive", "youtube"], "Product Images": ["gdrive", "amazon_attachment"], "POD": ["amazon_attachment"], "Invoice": ["gdrive", "amazon_attachment"] };
     return map[field] || [];
   }
   isPlaceholder(v) {
     const s = (v || "").trim().toLowerCase();
-    return s === "" || s === "n/a" || s === "na" || s === "tbd" || s === "-";
+    return s === "" || s === "n/a" || s === "na" || s === "tbd" || s === "-" || s === "n" || s === "no" || s === "none" || s === "null";
   }
   esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 }

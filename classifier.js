@@ -63,11 +63,18 @@ class IssueClassifier {
   checkFeesOverride(text) {
     const keywords = this.rules.feesOverrideKeywords || [];
     const matched = [];
+    const lines = text.split(/\n/);
+    const templateLineIndicators = ["select only one", "mfi /removal", "mfi/removal", "warehouse lost /fees", "removal order related"];
     for (const kw of keywords) {
       const flex = this.escapeRegex(kw).replace(/\s+/g, "\\s+");
-      if (new RegExp(`\\b${flex}\\b`, "i").test(text)) {
-        matched.push(kw);
+      const kwRe = new RegExp(`\\b${flex}\\b`, "i");
+      let foundOnRealLine = false;
+      for (const line of lines) {
+        if (!kwRe.test(line)) continue;
+        const isTemplateLine = templateLineIndicators.some(ind => line.toLowerCase().includes(ind));
+        if (!isTemplateLine) { foundOnRealLine = true; break; }
       }
+      if (foundOnRealLine) matched.push(kw);
     }
     if (matched.length === 0) return null;
     const category = this.rules.feesOverrideCategory || this.rules.categories.find(c => c.id === "weight_dimension_out_of_scope");

@@ -1,5 +1,5 @@
 (function () {
-  console.log("[FBA Monitor CS v11.9] Loaded on", location.href);
+  console.log("[FBA Monitor CS v11.14] Loaded on", location.href);
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.action === "ping") { sendResponse({ pong: true, url: location.href }); return false; }
@@ -27,7 +27,7 @@
     await waitFor(() => !(document.body.innerText || "").includes("Loading folder path"), 10000);
     await sleep(1500);
     const cards = getIssueCards();
-    console.log("[FBA Monitor CS v11.9] Found " + cards.length + " cards");
+    console.log("[FBA Monitor CS v11.14] Found " + cards.length + " cards");
     if (cards.length === 0) return { success: false, error: "No issue cards found" };
     const issues = [];
     const scrapedUuids = new Set();
@@ -255,9 +255,15 @@
     return links;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // ✨ v11.14: POLLING for suggestion load (up to 12s) + double-click
+  // ═══════════════════════════════════════════════════════════════
+
   async function assignIssueToUser(issueId, username) {
+    console.log(`[FBA Monitor CS v11.14] Assigning to: ${username}`);
     await waitForIssueSelected(issueId);
     await sleep(1500);
+
     const assignCandidates = [];
     document.querySelectorAll("*").forEach(el => {
       let ownText = "";
@@ -265,55 +271,241 @@
       if (/assign to a user/i.test(ownText.trim()) && el.offsetParent !== null) assignCandidates.push(el);
     });
     if (assignCandidates.length === 0) return { success: false, error: "'Assign to a user' element not found" };
+
     let clickTarget = assignCandidates[0];
     let node = clickTarget;
     for (let i = 0; i < 5 && node; i++) {
       if (node.tagName === "A" || node.tagName === "BUTTON" || node.getAttribute("role") === "button" || node.onclick) { clickTarget = node; break; }
       node = node.parentElement;
     }
+
     clickTarget.click();
-    ['mousedown', 'mouseup', 'click'].forEach(evt => clickTarget.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window })));
-    await sleep(2000);
-    let userInput = null;
-    const inputs = Array.from(document.querySelectorAll("input[type='text'], input[type='search'], input:not([type])")).filter(inp => inp.offsetParent !== null);
-    for (const inp of inputs) {
-      const placeholder = (inp.placeholder || "").toLowerCase();
-      const ariaLabel = (inp.getAttribute("aria-label") || "").toLowerCase();
-      if (placeholder.includes("user") || placeholder.includes("assign") || placeholder.includes("search") || ariaLabel.includes("user") || ariaLabel.includes("assign")) { userInput = inp; break; }
+    ['mousedown', 'mouseup', 'click'].forEach(evt =>
+      clickTarget.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }))
+    );
+    await sleep(2500);
+
+    let userInput = findAssigneeInputByHeader();
+    if (!userInput) {
+      const allInputs = Array.from(document.querySelectorAll("input[type='text'], input[type='search'], input:not([type])"))
+        .filter(i => i.offsetParent !== null);
+      userInput = allInputs.find(i => {
+        const container = i.closest("[class*='popup'], [class*='dropdown'], [class*='menu'], [role='dialog'], [role='listbox']");
+        return container !== null;
+      });
     }
-    if (!userInput && inputs.length > 0) userInput = inputs[inputs.length - 1];
+    if (!userInput) {
+      const allInputs = Array.from(document.querySelectorAll("input[type='text'], input[type='search'], input:not([type])"))
+        .filter(i => i.offsetParent !== null);
+      userInput = allInputs[allInputs.length - 1];
+    }
     if (!userInput) return { success: false, error: "Assignee input not found" };
+
+    console.log(`[v11.14] Found assignee input`);
+
+    userInput.scrollIntoView({ block: 'center', behavior: 'instant' });
+    await sleep(300);
+    const rect = userInput.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    try { userInput.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: cx, clientY: cy, pointerType: 'mouse', button: 0 })); } catch (e) {}
+    userInput.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0, buttons: 1 }));
+    userInput.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0 }));
+    try { userInput.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: cx, clientY: cy, pointerType: 'mouse', button: 0 })); } catch (e) {}
+    userInput.click();
     userInput.focus();
-    userInput.value = username;
-    ["input", "change", "keyup", "keydown"].forEach(evt => userInput.dispatchEvent(new Event(evt, { bubbles: true })));
-    await sleep(2000);
-    const suggSelectors = ["li[role='option']", "[role='option']", ".ui-menu-item", ".autocomplete-item", ".dropdown-item", ".select2-result", "li.suggestion"];
-    let suggestion = null;
-    for (const sel of suggSelectors) {
-      const items = Array.from(document.querySelectorAll(sel)).filter(el => el.offsetParent !== null);
-      for (const item of items) {
-        if ((item.textContent || "").toLowerCase().includes(username.toLowerCase())) { suggestion = item; break; }
-      }
-      if (suggestion) break;
+    await sleep(400);
+
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (setter) setter.call(userInput, "");
+    userInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(200);
+
+    console.log(`[v11.14] Typing "${username}" char-by-char...`);
+    for (const char of username) {
+      const currentVal = userInput.value + char;
+      if (setter) setter.call(userInput, currentVal); else userInput.value = currentVal;
+      userInput.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true, cancelable: true }));
+      userInput.dispatchEvent(new Event('input', { bubbles: true }));
+      userInput.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true, cancelable: true }));
+      await sleep(80);
     }
-    if (suggestion) {
-      suggestion.click();
+
+    console.log(`[v11.14] Typed value: "${userInput.value}". POLLING for suggestion (up to 15s)...`);
+
+    // ✨ POLL for suggestion to appear (Amazon SIM's async API takes 2-10s)
+    let suggestions = [];
+    const maxPollAttempts = 30; // 30 × 500ms = 15 seconds max
+    for (let i = 0; i < maxPollAttempts; i++) {
+      await sleep(500);
+      suggestions = findAssigneeSuggestions(username);
+      if (suggestions.length > 0) {
+        console.log(`[v11.14] ✓ Suggestion loaded after ${(i + 1) * 500}ms`);
+        break;
+      }
+      if ((i + 1) % 4 === 0) {
+        console.log(`[v11.14] Still waiting for suggestion... ${(i + 1) * 500}ms elapsed`);
+      }
+    }
+
+    console.log(`[v11.14] Final: Found ${suggestions.length} suggestions matching "${username}"`);
+
+    if (suggestions.length === 0) {
+      console.warn("[v11.14] No suggestions loaded after 15s. Trying Enter key fallback...");
+      ['keydown', 'keypress', 'keyup'].forEach(evt =>
+        userInput.dispatchEvent(new KeyboardEvent(evt, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
+      );
+      await sleep(2000);
+      return { success: false, error: `No matching user "${username}" found after 15s. Input: "${userInput.value}"` };
+    }
+
+    const bestMatch = suggestions[0];
+    console.log(`[v11.14] DOUBLE-clicking suggestion: "${bestMatch.textContent?.trim()}"`);
+    bestMatch.scrollIntoView({ block: 'center', behavior: 'instant' });
+    await sleep(300);
+
+    const bRect = bestMatch.getBoundingClientRect();
+    const bcx = bRect.left + bRect.width / 2;
+    const bcy = bRect.top + bRect.height / 2;
+
+    // First click (detail: 1)
+    try { bestMatch.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: bcx, clientY: bcy, pointerType: 'mouse', button: 0 })); } catch (e) {}
+    bestMatch.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, clientX: bcx, clientY: bcy, button: 0, buttons: 1, detail: 1 }));
+    bestMatch.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window, clientX: bcx, clientY: bcy, button: 0, detail: 1 }));
+    try { bestMatch.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: bcx, clientY: bcy, pointerType: 'mouse', button: 0 })); } catch (e) {}
+    bestMatch.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: bcx, clientY: bcy, button: 0, detail: 1 }));
+    bestMatch.click();
+
+    await sleep(150);
+
+    // Second click (detail: 2)
+    try { bestMatch.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: bcx, clientY: bcy, pointerType: 'mouse', button: 0 })); } catch (e) {}
+    bestMatch.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, clientX: bcx, clientY: bcy, button: 0, buttons: 1, detail: 2 }));
+    bestMatch.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window, clientX: bcx, clientY: bcy, button: 0, detail: 2 }));
+    try { bestMatch.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: bcx, clientY: bcy, pointerType: 'mouse', button: 0 })); } catch (e) {}
+    bestMatch.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: bcx, clientY: bcy, button: 0, detail: 2 }));
+    bestMatch.click();
+
+    // Native dblclick
+    bestMatch.dispatchEvent(new MouseEvent('dblclick', {
+      bubbles: true, cancelable: true, view: window,
+      clientX: bcx, clientY: bcy, button: 0, detail: 2
+    }));
+
+    console.log("[v11.14] Double-click + dblclick event dispatched");
+    await sleep(2500);
+
+    const dropdownStillOpen = Array.from(document.querySelectorAll("*")).some(el => {
+      let ownText = "";
+      for (const child of el.childNodes) if (child.nodeType === Node.TEXT_NODE) ownText += child.nodeValue;
+      return /select an assignee/i.test(ownText.trim()) && el.offsetParent !== null;
+    });
+
+    if (dropdownStillOpen) {
+      console.warn("[v11.14] Dropdown still open. Retrying dblclick...");
+      bestMatch.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, view: window, clientX: bcx, clientY: bcy, button: 0, detail: 2 }));
+      await sleep(2000);
+    } else {
+      console.log("[v11.14] ✓ Dropdown closed - assignment successful!");
+    }
+
+    const saveBtns = Array.from(document.querySelectorAll("button, [role='button']")).filter(b =>
+      b.offsetParent !== null && !b.disabled &&
+      /^(save|confirm|assign|submit|apply|ok|done)$/i.test((b.textContent || "").trim())
+    );
+    if (saveBtns.length > 0) {
+      const preferred = saveBtns.find(b => /^(assign|save|confirm)$/i.test((b.textContent || "").trim())) || saveBtns[0];
+      console.log(`[v11.14] Clicking save button: "${preferred.textContent?.trim()}"`);
+      preferred.click();
+      ['mousedown', 'mouseup', 'click'].forEach(evt =>
+        preferred.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }))
+      );
       await sleep(1500);
-      const saveBtns = Array.from(document.querySelectorAll("button, [role='button']")).filter(b => b.offsetParent !== null && /save|confirm|assign|submit|apply|ok/i.test(b.textContent || ""));
-      if (saveBtns.length > 0) {
-        const preferred = saveBtns.find(b => /^(assign|save)$/i.test((b.textContent || "").trim())) || saveBtns[0];
-        preferred.click();
-        await sleep(1000);
-      }
-      return { success: true, message: `Assigned to ${username}` };
     }
-    ["keydown", "keypress", "keyup"].forEach(evt => userInput.dispatchEvent(new KeyboardEvent(evt, { key: "Enter", code: "Enter", keyCode: 13, bubbles: true })));
-    await sleep(1500);
-    return { success: true, message: `Typed "${username}" + Enter (verify in SIM)` };
+
+    return { success: true, message: `Assigned to ${username}` };
+  }
+
+  function findAssigneeInputByHeader() {
+    let headerEl = null;
+    document.querySelectorAll("*").forEach(el => {
+      if (headerEl) return;
+      let ownText = "";
+      for (const child of el.childNodes) if (child.nodeType === Node.TEXT_NODE) ownText += child.nodeValue;
+      if (/select an assignee/i.test(ownText.trim()) && el.offsetParent !== null) headerEl = el;
+    });
+    if (!headerEl) { console.log("[v11.14] 'Select an assignee' header not found"); return null; }
+    console.log("[v11.14] Found 'Select an assignee' header");
+    let container = headerEl;
+    for (let d = 0; d < 8 && container; d++) {
+      const inputs = Array.from(container.querySelectorAll("input[type='text'], input[type='search'], input:not([type])"))
+        .filter(i => i.offsetParent !== null);
+      if (inputs.length > 0) return inputs[0];
+      container = container.parentElement;
+    }
+    return null;
+  }
+
+  function findAssigneeSuggestions(username) {
+    const userLower = username.toLowerCase().trim();
+    let popupContainer = null;
+    document.querySelectorAll("*").forEach(el => {
+      if (popupContainer) return;
+      let ownText = "";
+      for (const child of el.childNodes) if (child.nodeType === Node.TEXT_NODE) ownText += child.nodeValue;
+      if (/select an assignee/i.test(ownText.trim()) && el.offsetParent !== null) {
+        let container = el;
+        for (let d = 0; d < 8 && container; d++) {
+          const inputCount = container.querySelectorAll("input").length;
+          const totalEls = container.querySelectorAll("*").length;
+          if (inputCount > 0 && totalEls >= 5) { popupContainer = container; break; }
+          container = container.parentElement;
+        }
+      }
+    });
+
+    if (!popupContainer) popupContainer = document.body;
+
+    const candidates = [];
+    const searchable = popupContainer.querySelectorAll(
+      "li, div, span, a, button, td, tr, [role='option'], [role='button'], [tabindex]"
+    );
+
+    for (const el of searchable) {
+      if (el.offsetParent === null) continue;
+      let ownText = "";
+      for (const child of el.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) ownText += child.nodeValue;
+      }
+      ownText = ownText.trim().toLowerCase();
+      if (!ownText || ownText.length > 80) continue;
+      if (ownText === "close" || ownText === "cancel") continue;
+      if (/^select an assignee/i.test(ownText)) continue;
+      if (/^(save|assign|apply|ok|done|submit)$/i.test(ownText)) continue;
+
+      if (ownText === userLower) candidates.push({ el, score: 100, text: ownText });
+      else if (ownText.startsWith(userLower + " ") || ownText.startsWith(userLower)) candidates.push({ el, score: 80, text: ownText });
+      else if (ownText.includes(userLower)) candidates.push({ el, score: 50, text: ownText });
+    }
+
+    candidates.sort((a, b) => b.score - a.score);
+    const seen = new Set();
+    const unique = candidates.filter(c => { if (seen.has(c.el)) return false; seen.add(c.el); return true; });
+
+    if (unique.length > 1) {
+      unique.sort((a, b) => {
+        const aClickable = (a.el.tagName === "LI" || a.el.getAttribute("role") === "option" || a.el.getAttribute("role") === "button") ? 1 : 0;
+        const bClickable = (b.el.tagName === "LI" || b.el.getAttribute("role") === "option" || b.el.getAttribute("role") === "button") ? 1 : 0;
+        if (aClickable !== bClickable) return bClickable - aClickable;
+        return b.score - a.score;
+      });
+    }
+
+    return unique.map(c => c.el);
   }
 
   async function fullAutoResolve(issueId, options) {
-    console.log(`[FBA Monitor CS v11.9] Full auto-resolve: ${issueId}`, options);
+    console.log(`[FBA Monitor CS v11.14] Full auto-resolve: ${issueId}`, options);
     await waitForIssueSelected(issueId);
     await sleep(2000);
     const results = { steps: [] };
@@ -407,7 +599,7 @@
   }
 
   async function applyLabelToTicket(labelName) {
-    console.log(`[FBA Monitor CS v11.9] Applying label: ${labelName}`);
+    console.log(`[FBA Monitor CS v11.14] Applying label: ${labelName}`);
     const inputsBefore = new Set(Array.from(document.querySelectorAll("input, textarea")).filter(inp => inp.offsetParent !== null));
     let addLabelsEl = null;
     document.querySelectorAll("*").forEach(el => {
@@ -477,7 +669,7 @@
   }
 
   async function markTicketAsResolved(resolveConfig = {}) {
-    console.log("[FBA Monitor CS v11.9] Looking for Resolve header button...", resolveConfig);
+    console.log("[FBA Monitor CS v11.14] Looking for Resolve header button...", resolveConfig);
     window.scrollTo(0, 0);
     const rightPanel = document.querySelector('[class*="detail"], [class*="right-panel"], [class*="issue-detail"]');
     if (rightPanel) rightPanel.scrollTop = 0;
@@ -495,7 +687,7 @@
         if (/^Resolve$/i.test(ownText.trim()) && el.offsetParent !== null) candidates.push(el);
       });
     }
-    if (candidates.length === 0) return { success: false, error: "'Resolve' button not found (may already be resolved)" };
+    if (candidates.length === 0) return { success: false, error: "'Resolve' button not found" };
 
     let btn = candidates[0];
     let node = btn;
@@ -516,30 +708,21 @@
     return await fillAndSubmitResolveModal(resolveConfig);
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // ✨ v11.9: RESOLVE MODAL with robust submit button click + verification
-  // ═══════════════════════════════════════════════════════════════
-
   async function fillAndSubmitResolveModal(config = {}) {
-    console.log("[FBA Monitor CS v11.9] Waiting for 'Resolve Issue' modal...", config);
-
+    console.log("[FBA Monitor CS v11.14] Waiting for 'Resolve Issue' modal...", config);
     let modal = null;
     for (let i = 0; i < 20; i++) {
       const dialogs = document.querySelectorAll("[role='dialog'], .modal, div");
       for (const d of dialogs) {
         const text = d.innerText || "";
-        if (text.includes("Resolve Issue") && text.includes("Root Cause") &&
-            d.offsetParent !== null && d.offsetWidth > 400) {
-          modal = d;
-          break;
+        if (text.includes("Resolve Issue") && text.includes("Root Cause") && d.offsetParent !== null && d.offsetWidth > 400) {
+          modal = d; break;
         }
       }
       if (modal) break;
       await sleep(400);
     }
     if (!modal) return { success: false, error: "Resolve Issue modal not found" };
-
-    console.log("[FBA Monitor CS v11.9] Modal found. Waiting 1.5s for React render...");
     await sleep(1500);
 
     const isOutOfScope = config.actionType === "out_of_scope";
@@ -549,7 +732,6 @@
     const actionItemsVal = config.actionItems || summaryVal;
 
     const results = [];
-
     results.push({ field: "Root Cause", ok: await setRadioByLabel(modal, "Root Cause", "No") });
     results.push({ field: "Summary", ok: await setTextareaByLabel(modal, "Summary", summaryVal) });
     results.push({ field: "Bucket", ok: await setDropdownByLabel(modal, "Bucket", bucketVal) });
@@ -569,13 +751,10 @@
     if (!reimbOk) reimbOk = await setTextInputByLabel(modal, "Reimbursement Amount", "0");
     results.push({ field: "Reimbursement Amount", ok: reimbOk });
 
-    console.log("[FBA Monitor CS v11.9] Field fill results:", results);
     await sleep(1500);
 
-    // Retry any failed fields
     const failedFirstPass = results.filter(r => !r.ok);
     if (failedFirstPass.length > 0) {
-      console.log("[FBA Monitor CS v11.9] Retrying failed fields:", failedFirstPass.map(f => f.field));
       for (const failed of failedFirstPass) {
         await sleep(600);
         let retryOk = false;
@@ -593,158 +772,60 @@
         if (retryOk) {
           const idx = results.findIndex(r => r.field === failed.field);
           if (idx >= 0) results[idx].ok = true;
-          console.log(`[v11.9] ✓ Retry succeeded for "${failed.field}"`);
         }
       }
       await sleep(1000);
     }
 
-    // ═══ ROBUST RESOLVE BUTTON CLICK WITH VERIFICATION ═══
-    console.log("[FBA Monitor CS v11.9] Locating modal Resolve submit button...");
-
     const allResolveButtons = Array.from(modal.querySelectorAll("button, input[type='submit'], input[type='button']"))
-      .filter(b => {
-        const t = (b.textContent || b.value || "").trim();
-        return /^Resolve$/i.test(t) && b.offsetParent !== null;
-      });
-
-    console.log(`[v11.9] Found ${allResolveButtons.length} Resolve buttons in modal`);
-
-    // Prefer the one lowest on the page (footer submit button)
-    allResolveButtons.sort((a, b) => {
-      const ra = a.getBoundingClientRect();
-      const rb = b.getBoundingClientRect();
-      return rb.top - ra.top;
-    });
-
+      .filter(b => { const t = (b.textContent || b.value || "").trim(); return /^Resolve$/i.test(t) && b.offsetParent !== null; });
+    allResolveButtons.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top);
     const resolveBtn = allResolveButtons[0];
+    if (!resolveBtn) return { success: false, error: "Resolve submit not found", fieldResults: results };
 
-    if (!resolveBtn) {
-      return { success: false, error: "Modal Resolve submit button not found", fieldResults: results };
-    }
-
-    // Check disabled state via multiple methods
-    const isDisabled = resolveBtn.disabled ||
-      resolveBtn.getAttribute('aria-disabled') === 'true' ||
-      resolveBtn.classList.contains('disabled') ||
-      resolveBtn.classList.contains('is-disabled') ||
-      window.getComputedStyle(resolveBtn).pointerEvents === 'none';
-
+    const isDisabled = resolveBtn.disabled || resolveBtn.getAttribute('aria-disabled') === 'true' ||
+      resolveBtn.classList.contains('disabled') || window.getComputedStyle(resolveBtn).pointerEvents === 'none';
     if (isDisabled) {
-      console.warn("[v11.9] Resolve button appears disabled. Waiting 2s for validation...");
       await sleep(2000);
-      const stillDisabled = resolveBtn.disabled || resolveBtn.getAttribute('aria-disabled') === 'true';
-      if (stillDisabled) {
-        return {
-          success: false,
-          error: "Modal Resolve button disabled (form validation failed - check required fields)",
-          fieldResults: results
-        };
+      if (resolveBtn.disabled || resolveBtn.getAttribute('aria-disabled') === 'true') {
+        return { success: false, error: "Resolve button disabled", fieldResults: results };
       }
     }
 
-    console.log("[v11.9] Scrolling Resolve button into view...");
     resolveBtn.scrollIntoView({ block: 'center', behavior: 'instant' });
     await sleep(500);
-
-    const rect = resolveBtn.getBoundingClientRect();
-    const clickX = rect.left + rect.width / 2;
-    const clickY = rect.top + rect.height / 2;
-
-    console.log(`[v11.9] Clicking Resolve at (${Math.round(clickX)}, ${Math.round(clickY)})...`);
-
+    const rct = resolveBtn.getBoundingClientRect();
+    const rcx = rct.left + rct.width / 2, rcy = rct.top + rct.height / 2;
     resolveBtn.focus();
     await sleep(100);
-
-    // PointerEvent sequence (React 17+ preferred)
-    try {
-      resolveBtn.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, cancelable: true, clientX: clickX, clientY: clickY, pointerType: 'mouse' }));
-      resolveBtn.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, clientX: clickX, clientY: clickY, pointerType: 'mouse' }));
-      resolveBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: clickX, clientY: clickY, pointerType: 'mouse', button: 0 }));
-    } catch (e) { /* PointerEvent may not be available */ }
-
-    // MouseEvent sequence
-    resolveBtn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window, clientX: clickX, clientY: clickY }));
-    resolveBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, clientX: clickX, clientY: clickY, button: 0, buttons: 1 }));
+    try { resolveBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: rcx, clientY: rcy, pointerType: 'mouse', button: 0 })); } catch (e) {}
+    resolveBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, clientX: rcx, clientY: rcy, button: 0, buttons: 1 }));
     await sleep(50);
-    resolveBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window, clientX: clickX, clientY: clickY, button: 0, buttons: 0 }));
-
-    try {
-      resolveBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: clickX, clientY: clickY, pointerType: 'mouse', button: 0 }));
-    } catch (e) { }
-
-    // Native click (last)
+    resolveBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window, clientX: rcx, clientY: rcy, button: 0 }));
+    try { resolveBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: rcx, clientY: rcy, pointerType: 'mouse', button: 0 })); } catch (e) {}
     resolveBtn.click();
-    resolveBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: clickX, clientY: clickY, button: 0 }));
+    resolveBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: rcx, clientY: rcy, button: 0 }));
 
-    console.log("[v11.9] Click dispatched. Waiting for modal to close...");
-
-    // Wait up to 8s for modal to close
     let modalClosed = false;
     for (let i = 0; i < 40; i++) {
       await sleep(200);
-      const modalStillVisible = modal.offsetParent !== null &&
-        document.body.contains(modal) &&
-        (modal.innerText || "").includes("Resolve Issue");
-      if (!modalStillVisible) {
-        modalClosed = true;
-        console.log(`[v11.9] ✓ Modal closed after ${(i + 1) * 200}ms - submission successful!`);
-        break;
-      }
+      const stillVisible = modal.offsetParent !== null && document.body.contains(modal) && (modal.innerText || "").includes("Resolve Issue");
+      if (!stillVisible) { modalClosed = true; break; }
     }
-
-    // Fallback 1: form.submit()
     if (!modalClosed) {
-      console.warn("[v11.9] Modal didn't close after 8s. Trying form.submit() fallback...");
       const form = resolveBtn.closest("form");
       if (form) {
-        try {
-          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-          form.submit?.();
-          await sleep(3000);
-          const stillOpen = modal.offsetParent !== null && (modal.innerText || "").includes("Resolve Issue");
-          if (!stillOpen) { modalClosed = true; console.log("[v11.9] ✓ form.submit() worked!"); }
-        } catch (e) { console.error("[v11.9] Form submit failed:", e); }
-      }
-    }
-
-    // Fallback 2: Enter key press
-    if (!modalClosed) {
-      console.warn("[v11.9] Trying Enter key press...");
-      resolveBtn.focus();
-      ['keydown', 'keypress', 'keyup'].forEach(evt =>
-        resolveBtn.dispatchEvent(new KeyboardEvent(evt, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true }))
-      );
-      await sleep(3000);
-      const stillOpen = modal.offsetParent !== null && (modal.innerText || "").includes("Resolve Issue");
-      if (!stillOpen) { modalClosed = true; console.log("[v11.9] ✓ Enter key worked!"); }
-    }
-
-    // Fallback 3: elementFromPoint click (simulates real user click)
-    if (!modalClosed) {
-      console.warn("[v11.9] Trying elementFromPoint click...");
-      const elAtPoint = document.elementFromPoint(clickX, clickY);
-      if (elAtPoint) {
-        elAtPoint.click();
-        ['mousedown', 'mouseup', 'click'].forEach(evt =>
-          elAtPoint.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window, clientX: clickX, clientY: clickY }))
-        );
-        await sleep(3000);
+        try { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); form.submit?.(); await sleep(3000); } catch (e) {}
         const stillOpen = modal.offsetParent !== null && (modal.innerText || "").includes("Resolve Issue");
-        if (!stillOpen) { modalClosed = true; console.log("[v11.9] ✓ elementFromPoint click worked!"); }
+        if (!stillOpen) modalClosed = true;
       }
     }
 
     const failed = results.filter(r => !r.ok);
     return {
       success: failed.length === 0 && modalClosed,
-      message: !modalClosed
-        ? `⚠ All fields filled but modal did NOT close after all attempts. Check for validation errors in SIM.`
-        : failed.length === 0
-          ? "✅ All fields filled and ticket resolved successfully"
-          : `Filled ${results.length - failed.length}/${results.length}. Failed: ${failed.map(f => f.field).join(", ")}`,
-      fieldResults: results,
-      modalClosed
+      message: !modalClosed ? `⚠ Fields filled but modal did not close` : failed.length === 0 ? "✅ Ticket resolved" : `Filled ${results.length - failed.length}/${results.length}`,
+      fieldResults: results, modalClosed
     };
   }
 
@@ -753,19 +834,13 @@
     const candidates = [];
     modal.querySelectorAll("label, span, div, p, td, th").forEach(el => {
       let ownText = "";
-      for (const child of el.childNodes) {
-        if (child.nodeType === Node.TEXT_NODE) ownText += child.nodeValue;
-      }
+      for (const child of el.childNodes) { if (child.nodeType === Node.TEXT_NODE) ownText += child.nodeValue; }
       ownText = ownText.trim().toLowerCase().replace(/[*?:]/g, "").trim();
       if (!ownText || ownText.length > 80) return;
       if (el.offsetParent === null) return;
-      if (ownText === labelLower) {
-        candidates.push({ el, score: 100 });
-      } else if (ownText.startsWith(labelLower + " ") || ownText.startsWith(labelLower)) {
-        candidates.push({ el, score: 80 });
-      } else if (ownText.includes(labelLower)) {
-        candidates.push({ el, score: 50 });
-      }
+      if (ownText === labelLower) candidates.push({ el, score: 100 });
+      else if (ownText.startsWith(labelLower + " ") || ownText.startsWith(labelLower)) candidates.push({ el, score: 80 });
+      else if (ownText.includes(labelLower)) candidates.push({ el, score: 50 });
     });
     candidates.sort((a, b) => b.score - a.score);
     return candidates[0]?.el || null;
@@ -774,24 +849,18 @@
   function findInputNearLabel(labelEl, inputType) {
     if (!labelEl) return null;
     const selectorMap = {
-      radio: "input[type='radio']",
-      checkbox: "input[type='checkbox']",
-      textarea: "textarea",
-      select: "select",
+      radio: "input[type='radio']", checkbox: "input[type='checkbox']",
+      textarea: "textarea", select: "select",
       text: "input[type='text'], input[type='number'], input:not([type]):not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='submit']):not([type='button'])"
     };
     const selector = selectorMap[inputType] || "input, select, textarea";
     const matches = selector.split(",").map(s => s.trim());
-
     const root = labelEl.closest("[role='dialog'], .modal") || document.body;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
     walker.currentNode = labelEl;
-
-    let current;
-    let stepsSinceLabel = 0;
+    let current, steps = 0;
     while ((current = walker.nextNode())) {
-      stepsSinceLabel++;
-      if (stepsSinceLabel > 200) break;
+      if (++steps > 200) break;
       if (current.offsetParent === null) continue;
       for (const sel of matches) {
         try {
@@ -801,11 +870,11 @@
             if (inputRect.top - labelRect.top > 400) return null;
             return current;
           }
-        } catch (e) { }
+        } catch (e) {}
       }
       if (current !== labelEl && current.tagName === "LABEL") {
-        const nextLabelText = (current.innerText || "").trim();
-        if (nextLabelText && nextLabelText.length > 2 && nextLabelText.length < 80) break;
+        const t = (current.innerText || "").trim();
+        if (t && t.length > 2 && t.length < 80) break;
       }
     }
     return null;
@@ -813,11 +882,10 @@
 
   async function setRadioByLabel(modal, labelText, optionText) {
     const labelEl = findLabelElement(modal, labelText);
-    if (!labelEl) { console.warn(`[v11.9] Radio label "${labelText}" not found`); return false; }
+    if (!labelEl) return false;
     let container = labelEl;
     for (let d = 0; d < 6 && container; d++) {
-      const radios = Array.from(container.querySelectorAll("input[type='radio']"))
-        .filter(r => r.offsetParent !== null);
+      const radios = Array.from(container.querySelectorAll("input[type='radio']")).filter(r => r.offsetParent !== null);
       if (radios.length >= 2) {
         const optLower = optionText.toLowerCase();
         let target = radios.find(r => {
@@ -826,55 +894,44 @@
         });
         if (!target) target = optLower === "no" ? radios[1] : radios[0];
         if (target) {
-          target.focus();
-          target.click();
+          target.focus(); target.click();
           const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked')?.set;
           if (setter) setter.call(target, true);
           ['change', 'click'].forEach(evt => target.dispatchEvent(new Event(evt, { bubbles: true })));
-          console.log(`[v11.9] ✓ Radio "${labelText}" = ${optionText}`);
+          console.log(`[v11.14] ✓ Radio "${labelText}" = ${optionText}`);
           return true;
         }
       }
       container = container.parentElement;
     }
-    console.warn(`[v11.9] ✗ Radio "${labelText}" failed`);
     return false;
   }
 
   async function setTextareaByLabel(modal, labelText, value) {
     const labelEl = findLabelElement(modal, labelText);
-    if (!labelEl) { console.warn(`[v11.9] Textarea label "${labelText}" not found`); return false; }
+    if (!labelEl) return false;
     labelEl.scrollIntoView({ block: 'center', behavior: 'instant' });
     await sleep(300);
     const textarea = findInputNearLabel(labelEl, "textarea");
-    if (!textarea) { console.warn(`[v11.9] Textarea near "${labelText}" not found`); return false; }
-
+    if (!textarea) return false;
     textarea.scrollIntoView({ block: 'center', behavior: 'instant' });
     await sleep(200);
-    textarea.focus();
-    textarea.click();
-
+    textarea.focus(); textarea.click();
     const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
     if (setter) setter.call(textarea, "");
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(150);
     if (setter) setter.call(textarea, value); else textarea.value = value;
     ['input', 'change', 'keyup', 'blur'].forEach(evt => textarea.dispatchEvent(new Event(evt, { bubbles: true })));
-
     await sleep(400);
-    if (textarea.value === value) {
-      console.log(`[v11.9] ✓ Textarea "${labelText}" = "${value.substring(0, 40)}" (verified)`);
-      return true;
-    }
-
-    console.warn(`[v11.9] ⚠ Textarea "${labelText}" direct set failed. Char-by-char retry...`);
+    if (textarea.value === value) { console.log(`[v11.14] ✓ Textarea "${labelText}" verified`); return true; }
     textarea.focus();
     if (setter) setter.call(textarea, "");
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(100);
     for (const char of value) {
-      const currentVal = textarea.value + char;
-      if (setter) setter.call(textarea, currentVal); else textarea.value = currentVal;
+      const cv = textarea.value + char;
+      if (setter) setter.call(textarea, cv); else textarea.value = cv;
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
       textarea.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }));
@@ -883,49 +940,34 @@
     textarea.dispatchEvent(new Event('change', { bubbles: true }));
     textarea.dispatchEvent(new Event('blur', { bubbles: true }));
     await sleep(300);
-    const finalOk = textarea.value === value;
-    console.log(`[v11.9] ${finalOk ? '✓' : '✗'} Char-by-char "${labelText}" final = "${textarea.value.substring(0, 40)}"`);
-    return finalOk;
+    return textarea.value === value;
   }
 
   async function setTextInputByLabel(modal, labelText, value) {
     const labelEl = findLabelElement(modal, labelText);
-    if (!labelEl) { console.warn(`[v11.9] Text input label "${labelText}" not found`); return false; }
+    if (!labelEl) return false;
     labelEl.scrollIntoView({ block: 'center', behavior: 'instant' });
     await sleep(300);
     const input = findInputNearLabel(labelEl, "text");
-    if (!input) { console.warn(`[v11.9] ✗ Text input near "${labelText}" not found`); return false; }
-
-    const labelRect = labelEl.getBoundingClientRect();
-    const inputRect = input.getBoundingClientRect();
-    console.log(`[v11.9] "${labelText}" label Y=${Math.round(labelRect.top)}, input Y=${Math.round(inputRect.top)}, dist=${Math.round(inputRect.top - labelRect.top)}px`);
-
+    if (!input) return false;
     input.scrollIntoView({ block: 'center', behavior: 'instant' });
     await sleep(200);
-    input.focus();
-    input.click();
-
+    input.focus(); input.click();
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
     if (setter) setter.call(input, "");
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(100);
     if (setter) setter.call(input, String(value)); else input.value = String(value);
     ['input', 'change', 'keyup', 'blur'].forEach(evt => input.dispatchEvent(new Event(evt, { bubbles: true })));
-
     await sleep(300);
-    if (input.value === String(value)) {
-      console.log(`[v11.9] ✓ Text input "${labelText}" = "${value}" (verified)`);
-      return true;
-    }
-
-    console.warn(`[v11.9] ⚠ "${labelText}" direct set failed. Char-by-char retry...`);
+    if (input.value === String(value)) { console.log(`[v11.14] ✓ Text input "${labelText}" verified`); return true; }
     input.focus();
     if (setter) setter.call(input, "");
     input.dispatchEvent(new Event('input', { bubbles: true }));
     await sleep(100);
     for (const char of String(value)) {
-      const currentVal = input.value + char;
-      if (setter) setter.call(input, currentVal); else input.value = currentVal;
+      const cv = input.value + char;
+      if (setter) setter.call(input, cv); else input.value = cv;
       input.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }));
@@ -934,26 +976,19 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
     input.dispatchEvent(new Event('blur', { bubbles: true }));
     await sleep(200);
-    const finalOk = input.value === String(value);
-    console.log(`[v11.9] ${finalOk ? '✓' : '✗'} Char-by-char "${labelText}" final = "${input.value}"`);
-    return finalOk;
+    return input.value === String(value);
   }
 
   async function setCheckboxByLabel(modal, checkboxLabelText) {
     const labelLower = checkboxLabelText.toLowerCase();
-    const checkboxes = Array.from(modal.querySelectorAll("input[type='checkbox']"))
-      .filter(c => c.offsetParent !== null);
+    const checkboxes = Array.from(modal.querySelectorAll("input[type='checkbox']")).filter(c => c.offsetParent !== null);
     let target = null;
     for (const cb of checkboxes) {
-      const nearby = (
-        cb.parentElement?.innerText ||
-        cb.closest("label, div, tr, td")?.innerText ||
-        cb.nextSibling?.nodeValue || ""
-      ).trim().toLowerCase();
+      const nearby = (cb.parentElement?.innerText || cb.closest("label, div, tr, td")?.innerText || cb.nextSibling?.nodeValue || "").trim().toLowerCase();
       if (nearby.includes("zero out")) continue;
       if (nearby.includes(labelLower)) { target = cb; break; }
     }
-    if (!target) { console.warn(`[v11.9] Checkbox "${checkboxLabelText}" not found`); return false; }
+    if (!target) return false;
     target.focus();
     if (!target.checked) {
       target.click();
@@ -963,20 +998,17 @@
         ['change', 'click'].forEach(evt => target.dispatchEvent(new Event(evt, { bubbles: true })));
       }
     }
-    console.log(`[v11.9] ✓ Checkbox "${checkboxLabelText}" checked`);
+    console.log(`[v11.14] ✓ Checkbox "${checkboxLabelText}" checked`);
     return true;
   }
 
   async function setDropdownByLabel(modal, labelText, optionValue) {
     const labelEl = findLabelElement(modal, labelText);
-    if (!labelEl) { console.warn(`[v11.9] Dropdown label "${labelText}" not found`); return false; }
+    if (!labelEl) return false;
     labelEl.scrollIntoView({ block: 'center', behavior: 'instant' });
     await sleep(300);
     const nativeSelect = findInputNearLabel(labelEl, "select");
-    if (!nativeSelect || nativeSelect.tagName !== "SELECT") {
-      console.warn(`[v11.9] No <select> near "${labelText}"`);
-      return false;
-    }
+    if (!nativeSelect || nativeSelect.tagName !== "SELECT") return false;
     nativeSelect.scrollIntoView({ block: 'center', behavior: 'instant' });
     await sleep(300);
     for (let i = 0; i < 15; i++) {
@@ -984,8 +1016,7 @@
       await sleep(200);
     }
     if (!nativeSelect.options || nativeSelect.options.length <= 1) {
-      nativeSelect.focus();
-      nativeSelect.click();
+      nativeSelect.focus(); nativeSelect.click();
       ['mousedown', 'mouseup', 'focus', 'click'].forEach(evt =>
         nativeSelect.dispatchEvent(new MouseEvent(evt, { bubbles: true, cancelable: true, view: window }))
       );
@@ -996,11 +1027,10 @@
       }
     }
     const optCount = nativeSelect.options?.length || 0;
-    console.log(`[v11.9] Dropdown "${labelText}" has ${optCount} options`);
-    if (optCount <= 1) { console.warn(`[v11.9] ✗ "${labelText}" empty`); return false; }
+    if (optCount <= 1) return false;
     const ok = setNativeSelectValue(nativeSelect, optionValue);
-    if (ok) console.log(`[v11.9] ✓ Dropdown "${labelText}" = "${optionValue}"`);
-    else console.warn(`[v11.9] ✗ "${optionValue}" NOT in options for "${labelText}":`, Array.from(nativeSelect.options).map(o => o.text));
+    if (ok) console.log(`[v11.14] ✓ Dropdown "${labelText}" = "${optionValue}"`);
+    else console.warn(`[v11.14] ✗ "${optionValue}" NOT in "${labelText}":`, Array.from(nativeSelect.options).map(o => o.text));
     return ok;
   }
 
@@ -1034,7 +1064,7 @@
     return new Promise(resolve => {
       const start = Date.now();
       const check = () => {
-        try { if (predicate()) return resolve(true); } catch (e) { }
+        try { if (predicate()) return resolve(true); } catch (e) {}
         if (Date.now() - start >= timeoutMs) return resolve(false);
         setTimeout(check, 300);
       };
@@ -1049,7 +1079,8 @@
     extractLeftPanelTitle, assignIssueToUser, fullAutoResolve, submitComment, markTicketAsResolved,
     fillAndSubmitResolveModal, applyLabelToTicket, scrollToResolveArea,
     findLabelElement, findInputNearLabel, setRadioByLabel, setTextareaByLabel,
-    setTextInputByLabel, setCheckboxByLabel, setDropdownByLabel, setNativeSelectValue
+    setTextInputByLabel, setCheckboxByLabel, setDropdownByLabel, setNativeSelectValue,
+    findAssigneeSuggestions, findAssigneeInputByHeader
   };
-  console.log("[FBA Monitor CS v11.9] Debug helper: window.__FBAMonitor");
+  console.log("[FBA Monitor CS v11.14] Debug helper: window.__FBAMonitor");
 })();

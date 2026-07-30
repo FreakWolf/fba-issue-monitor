@@ -57,7 +57,15 @@ async function handleActionClick(e) {
   if (actionType === "out_of_scope") {
     const template = rulesData.outOfScopeCommentTemplate;
     const labelName = rulesData.labels?.outOfScope || "Issue Not Handled by SR";
-    if (!confirm(`Auto-resolve as OUT OF SCOPE?\n\n1. Post redirect comment\n2. Auto-submit comment\n3. Apply label: "${labelName}"\n4. Fill & Submit Resolve Modal (Fees Charged in Error / Issue Not handled by SR)\n\nProceed?`)) return;
+
+    // ✨ Get bucketName from classified category
+    const cls = finding.classification || {};
+    const category = cls.status === "CLASSIFIED" ? cls.category :
+                     (cls.status === "AMBIGUOUS" ? cls.top2?.[0]?.category : null);
+    const bucketForResolve = category?.bucketName || "Fees Charged in Error";
+
+    if (!confirm(`Auto-resolve as OUT OF SCOPE?\n\nBucket: "${bucketForResolve}"\nSub Bucket: "Issue Not handled by SR"\n\n1. Post redirect comment\n2. Auto-submit comment\n3. Apply label: "${labelName}"\n4. Fill & Submit Resolve Modal\n\nProceed?`)) return;
+
     btn.textContent = "⏳ Auto-resolving..."; btn.disabled = true;
     const res = await chrome.runtime.sendMessage({
       action: "fullAutoResolveBg", issueId,
@@ -69,7 +77,7 @@ async function handleActionClick(e) {
         resolveConfig: {
           actionType: "out_of_scope",
           summary: "out of scope",
-          bucket: "Fees Charged in Error",
+          bucket: bucketForResolve,
           claimStatus: "Denied",
           subBucket: "Issue Not handled by SR",
           reimbursementAmount: "0"
@@ -85,7 +93,15 @@ async function handleActionClick(e) {
     const commentText = generateWikiNotFollowedComment(finding);
     const labelName = rulesData.labels?.wikiNotFollowed || "Wiki/Template not followed";
 
-    if (!confirm(`Auto-resolve as WIKI NOT FOLLOWED?\n\n1. Post format-request comment\n2. Auto-submit comment\n3. Apply label: "${labelName}"\n4. Fill & Submit Resolve Modal (General Enquiry / Invalid)\n\nNO assignment.\n\nProceed?`)) return;
+    // ✨ Get bucketName from classified category
+    const cls = finding.classification || {};
+    const category = cls.status === "CLASSIFIED" ? cls.category :
+                     (cls.status === "AMBIGUOUS" ? cls.top2?.[0]?.category : null);
+    const bucketForResolve = category?.bucketName || "General Enquiry";
+    const categoryName = category?.name || "Unknown";
+
+    if (!confirm(`Auto-resolve as WIKI NOT FOLLOWED?\n\nCategory: ${categoryName}\nBucket: "${bucketForResolve}"\nSub Bucket: "Invalid (Incomplete Information)"\n\n1. Post format-request comment\n2. Auto-submit comment\n3. Apply label: "${labelName}"\n4. Fill & Submit Resolve Modal\n\nNO assignment.\n\nProceed?`)) return;
+
     btn.textContent = "⏳ Auto-resolving..."; btn.disabled = true;
     const res = await chrome.runtime.sendMessage({
       action: "fullAutoResolveBg", issueId,
@@ -97,14 +113,14 @@ async function handleActionClick(e) {
         resolveConfig: {
           actionType: "wiki_not_followed",
           summary: "wiki not followed",
-          bucket: "General Enquiry",
+          bucket: bucketForResolve,
           claimStatus: "Denied",
           subBucket: "Invalid (Incomplete Information)",
           reimbursementAmount: "0"
         }
       }
     });
-    btn.textContent = res.success ? "✅ Resolved (Wiki N/F)" : "⚠️ " + (res.message || res.error);
+    btn.textContent = res.success ? `✅ Resolved (${categoryName})` : "⚠️ " + (res.message || res.error);
     if (!res.success) btn.disabled = false;
     return;
   }
@@ -227,7 +243,6 @@ function decideAction(cls, fc) {
   if (cls.status === "REDIRECT" && cls.category?.useOutOfScopeTemplate) {
     return { type: "out_of_scope", label: "🚫 Auto-Resolve Out of Scope", cssClass: "oos-btn" };
   }
-  // If AMBIGUOUS but BOTH top categories are out-of-scope, still show out-of-scope button
   if (cls.status === "AMBIGUOUS" && cls.top2?.length >= 2) {
     const bothOutOfScope = cls.top2.every(t => t.category?.useOutOfScopeTemplate);
     if (bothOutOfScope) {

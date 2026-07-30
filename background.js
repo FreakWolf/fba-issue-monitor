@@ -6,12 +6,13 @@ const MAX_HISTORY = 100;
 let rulesCache = null;
 async function loadRules() {
   if (rulesCache) return rulesCache;
-  const res = await fetch(chrome.runtime.getURL("rules.json"));
+  const res = await fetch(chrome.runtime.getURL("rules.json") + "?t=" + Date.now());
   rulesCache = await res.json();
   return rulesCache;
 }
 
 chrome.runtime.onInstalled.addListener(() => {
+  rulesCache = null;
   chrome.alarms.create("pollUnassigned", { periodInMinutes: POLL_INTERVAL_MIN });
   chrome.storage.local.set({ findings: {}, previousQueue: [], scanHistory: [], lastScanAt: null });
   console.log("[FBA Monitor BG v8.7] Installed.");
@@ -184,6 +185,11 @@ class IssueClassifierWrapper {
   constructor(rules) { this.rules = rules; }
   classify(text) {
     const normalized = (text || "").toLowerCase();
+
+    // ═══ PRIORITY CHECK: Weight/Dimension/Fees → always Out of Scope ═══
+    const feesOverride = this.checkFeesOverride(normalized);
+    if (feesOverride) return feesOverride;
+
     const scores = this.rules.categories.map(cat => this.scoreCategory(cat, normalized));
     scores.sort((a, b) => b.score - a.score);
     const top = scores[0], second = scores[1];
@@ -199,6 +205,25 @@ class IssueClassifierWrapper {
       return { status: "UNCLASSIFIABLE", topGuess: { category: top.category, score: top.score, signals: top.signals }, message: "Below threshold." };
     }
     return { status: "CLASSIFIED", category: top.category, score: top.score, signals: top.signals };
+  }
+  checkFeesOverride(text) {
+    const keywords = this.rules.feesOverrideKeywords || [];
+    const matched = [];
+    for (const kw of keywords) {
+      const flex = this.esc(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}\\b`, "i").test(text)) {
+        matched.push(kw);
+      }
+    }
+    if (matched.length === 0) return null;
+    const category = this.rules.feesOverrideCategory || this.rules.categories.find(c => c.id === "weight_dimension_out_of_scope");
+    return {
+      status: "REDIRECT",
+      category: category,
+      score: 999,
+      signals: matched.map(kw => `Fees override keyword "${kw}"`),
+      message: `Fees/Weight/Dimension detected → Out of Scope (override). Matched: ${matched.join(", ")}`
+    };
   }
   scoreCategory(cat, text) {
     let score = 0; const signals = [];
@@ -230,7 +255,7 @@ class IssueClassifierWrapper {
       let found = false, value = null, source = null;
       for (const alias of aliases) {
         const flexAlias = this.esc(alias).replace(/\s+/g, "\\s+");
-        const labelRe = new RegExp(`^\\s*(?:\\d+\\s*[.:\\-]\\s*)?${flexAlias}\\s*(?:\\([^)]*\\))?\\s*[:\\-=\\u2013\\u2014]\\s*(.*)$`, "i");
+        const labelRe = new RegExp(`^\\s*(?:\\d+\\s*[.:\\-]\\s*)?${flexAlias}(?:\\s+[\\w/()\\[\\]]+){0,4}\\s*[:\\-=\\u2013\\u2014]\\s*(.*)$`, "i");
         for (let i = 0; i < lines.length; i++) {
           const m = lines[i].match(labelRe);
           if (!m) continue;

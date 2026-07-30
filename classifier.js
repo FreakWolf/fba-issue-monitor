@@ -6,7 +6,12 @@ class IssueClassifier {
 
   // Main entry point
   classify(issueText) {
-    const normalized = issueText.toLowerCase();
+    const normalized = (issueText || "").toLowerCase();
+
+    // ═══ PRIORITY CHECK: Weight/Dimension/Fees → always Out of Scope ═══
+    const feesOverride = this.checkFeesOverride(normalized);
+    if (feesOverride) return feesOverride;
+
     const scores = [];
 
     for (const cat of this.rules.categories) {
@@ -52,6 +57,26 @@ class IssueClassifier {
       category: top.category,
       score: top.score,
       signals: top.signals
+    };
+  }
+
+  checkFeesOverride(text) {
+    const keywords = this.rules.feesOverrideKeywords || [];
+    const matched = [];
+    for (const kw of keywords) {
+      const flex = this.escapeRegex(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}\\b`, "i").test(text)) {
+        matched.push(kw);
+      }
+    }
+    if (matched.length === 0) return null;
+    const category = this.rules.feesOverrideCategory || this.rules.categories.find(c => c.id === "weight_dimension_out_of_scope");
+    return {
+      status: "REDIRECT",
+      category: category,
+      score: 999,
+      signals: matched.map(kw => `Fees override keyword "${kw}"`),
+      message: `Fees/Weight/Dimension detected → Out of Scope (override). Matched: ${matched.join(", ")}`
     };
   }
 

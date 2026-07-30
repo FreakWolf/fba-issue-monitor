@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FBA Issue Monitor",
-  "version": "1.9.1",
-  "description": "Monitors unassigned Reimbursements India issues, classifies, auto-resolves out-of-scope + wiki-not-followed, auto-assigns complete tickets.",
+  "version": "1.10.4",
+  "description": "Monitors unassigned Reimbursements India issues, classifies, auto-resolves, auto-assigns with polling + double-click.",
   "permissions": [
     "storage",
     "alarms",

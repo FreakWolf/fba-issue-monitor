@@ -12,9 +12,15 @@ class IssueClassifier {
     const feesOverride = this.checkFeesOverride(normalized);
     if (feesOverride) return feesOverride;
 
+    // ═══ PRIORITY CHECK #2: EF Channel detection ═══
+    const efResult = this.checkEFChannel(normalized);
+    if (efResult) return efResult;
+
     const scores = [];
 
     for (const cat of this.rules.categories) {
+      // Skip EF categories from normal scoring — they're handled above
+      if (cat.isEFChannel) continue;
       const result = this.scoreCategory(cat, normalized);
       scores.push(result);
     }
@@ -60,12 +66,75 @@ class IssueClassifier {
     };
   }
 
+  // ═══ EF Channel Detection ═══
+  // Detects EasyShip/SellerFlex/MFN + SAFE-T tickets and classifies into sub-type
+  checkEFChannel(text) {
+    // Must have SAFE-T signal
+    if (!(/\bsafe-?t\b/i.test(text))) return null;
+
+    // Check for EF title patterns (strongest signal)
+    const titlePatterns = this.rules.efTitlePatterns || [];
+    let hasTitlePattern = false;
+    for (const pattern of titlePatterns) {
+      const flex = this.escapeRegex(pattern).replace(/\s+/g, "\\s+");
+      if (new RegExp(flex, "i").test(text)) { hasTitlePattern = true; break; }
+    }
+
+    // Check for EF channel keywords
+    const efKeywords = this.rules.efChannelKeywords || [];
+    let hasEFSignal = false;
+    for (const kw of efKeywords) {
+      const flex = this.escapeRegex(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}\\b`, "i").test(text)) { hasEFSignal = true; break; }
+    }
+
+    // Need EITHER a title pattern OR a channel keyword (plus SAFE-T)
+    if (!hasTitlePattern && !hasEFSignal) return null;
+
+    // Now determine sub-type by scoring EF categories
+    const efCategories = (this.rules.categories || []).filter(c => c.isEFChannel);
+    if (efCategories.length === 0) return null;
+
+    let bestCat = null, bestScore = 0, bestSignals = [];
+    for (const cat of efCategories) {
+      const result = this.scoreCategory(cat, text);
+      if (result.score > bestScore) {
+        bestScore = result.score;
+        bestCat = cat;
+        bestSignals = result.signals;
+      }
+    }
+
+    // If no strong match among sub-types, default to denial (most common)
+    if (!bestCat || bestScore < 20) {
+      bestCat = efCategories.find(c => c.efSubType === "denial") || efCategories[0];
+      bestSignals = ["EF Channel + SAFE-T detected (default to denial sub-type)"];
+    }
+
+    return {
+      status: "CLASSIFIED",
+      category: bestCat,
+      score: bestScore,
+      signals: bestSignals,
+      isEFChannel: true,
+      message: `EF Channel (${bestCat.efSubType}) — requires Yoda lookup for assignment`
+    };
+  }
+
   checkFeesOverride(text) {
     const keywords = this.rules.feesOverrideKeywords || [];
     const matched = [];
     const lines = text.split(/\n/);
     const templateLineIndicators = ["select only one", "mfi /removal", "mfi/removal", "warehouse lost /fees", "removal order related"];
+    // If the text has strong SAFE-T + EF signals, don't trigger fees override for clawback/claw back
+    const hasSafetSignal = /\bsafe-?t\b/i.test(text);
+    const hasEFSignal = /\b(easyship|easy\s*ship|seller\s*flex|sellerflex|mfn|self\s*ship|selfship)\b/i.test(text);
+    const isEFContext = hasSafetSignal && hasEFSignal;
+
     for (const kw of keywords) {
+      // Skip clawback/claw back keywords when in EF SAFE-T context
+      if (isEFContext && (kw === "clawback" || kw === "claw back")) continue;
+
       const flex = this.escapeRegex(kw).replace(/\s+/g, "\\s+");
       const kwRe = new RegExp(`\\b${flex}\\b`, "i");
       let foundOnRealLine = false;
@@ -102,8 +171,8 @@ class IssueClassifier {
 
     // Exclusive keywords (+15 each) - strong signal
     for (const kw of cat.exclusiveKeywords || []) {
-      const re = new RegExp(`\\b${this.escapeRegex(kw)}\\b`, "i");
-      if (re.test(text)) {
+      const flex = this.escapeRegex(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}\\b`, "i").test(text)) {
         score += 15;
         signals.push(`Exclusive keyword "${kw}" (+15)`);
       }
@@ -111,19 +180,19 @@ class IssueClassifier {
 
     // Regular keywords (+10 each)
     for (const kw of cat.keywords || []) {
-      const re = new RegExp(`\\b${this.escapeRegex(kw)}\\b`, "i");
-      if (re.test(text)) {
+      const flex = this.escapeRegex(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}\\b`, "i").test(text)) {
         score += 10;
         signals.push(`Keyword "${kw}" (+10)`);
       }
     }
 
     // Field presence (+5 each)
-    for (const field of cat.mandatoryFields || []) {
+    for (const field of (cat.mandatoryFields || []).concat(cat.optionalFields || [])) {
       const aliases = this.rules.fieldAliases[field] || [field.toLowerCase()];
       for (const alias of aliases) {
-        const re = new RegExp(`\\b${this.escapeRegex(alias)}\\b`, "i");
-        if (re.test(text)) {
+        const flex = this.escapeRegex(alias).replace(/\s+/g, "\\s+");
+        if (new RegExp(`\\b${flex}\\b`, "i").test(text)) {
           score += 5;
           signals.push(`Field "${field}" mentioned (+5)`);
           break;
@@ -145,7 +214,8 @@ class IssueClassifier {
       let value = null;
 
       for (const alias of aliases) {
-        const re = new RegExp(`${this.escapeRegex(alias)}\\s*[:\\-]\\s*(.+?)$`, "im");
+        const flexAlias = this.escapeRegex(alias).replace(/\s+/g, "\\s+");
+        const re = new RegExp(`(?:^|\\n)\\s*(?:\\d+\\s*[.:\\-]\\s*)?${flexAlias}(?:\\s+[\\w/()\\[\\]]+){0,4}\\s*[:\\-=\\u2013\\u2014]\\s*(.+?)$`, "im");
         for (const line of lines) {
           const m = line.match(re);
           if (m && m[1] && m[1].trim().length > 0 && !this.isPlaceholder(m[1])) {
@@ -168,8 +238,8 @@ class IssueClassifier {
   }
 
   isPlaceholder(v) {
-    const s = v.trim().toLowerCase();
-    return s === "" || s === "n/a" || s === "na" || s === "tbd" || s === "-";
+    const s = (v || "").trim().toLowerCase();
+    return s === "" || s === "n/a" || s === "na" || s === "tbd" || s === "-" || s === "n" || s === "no" || s === "none" || s === "null";
   }
 
   escapeRegex(s) {

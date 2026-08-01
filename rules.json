@@ -8,6 +8,7 @@
   },
   "outOfScopeCommentTemplate": "Hii Team,\n\nSeller reimbursement team no longer handles any Fees reimbursement's process. We have already updated the same in our Seller Reimbursement Escalation wiki:\nhttps://w.amazon.com/bin/view/IN_Reimbursement_Escalation\n\nFor ES:\n\nEasy ship Fee related concerns and/or their Claw back related SAFE-T issues are out of Seller Reimbursement's scope. Please reach out to following CTI:\n\nC: Easy Ship\nT: Program Problem\nI: Weight Mismatch\nGroup: Amazon Easy Ship Program\n\nFor FBA/Seller Flex Fees issues:\n\nFor escalations, please reach out to the T4 Credit Ops team by using the CTI:\n\nC: Fulfillment By Amazon\nT: Shipping Claims\nI: Fees Escalations\n\nNote: Tickets have to be assigned only to this Group: T4 Credit Ops Project IN.",
   "wikiNotFollowedCommentTemplate": "Hi Team,\n\nThis SIM cannot be processed as the following mandatory details are missing or not provided as per the required template:\n\n{MISSING_FIELDS}\n\nAs per the standard operating procedure, all reimbursement SIMs must follow the prescribed format with complete details. This SIM is being resolved due to non-compliance with the template.\n\nKindly raise a NEW SIM using the below format:\n\n{SAMPLE_FORMAT}\n\nClaim window: {CLAIM_WINDOW_DAYS} days from {CLAIM_WINDOW_FROM}. Please raise the new SIM within this window to avoid claim denial.\n\nReference SIM: {TITLE}\n\nRefer to the Seller Reimbursement Escalation wiki: https://w.amazon.com/bin/view/IN_Reimbursement_Escalation\n\nThanks for your cooperation.",
+  "efWikiNotFollowedCommentTemplate": "Hi,\n\nSIM request is submitted without following the wiki guidelines/including all mandatory details. This leads to delays and inefficiencies. To ensure prompt response:\n\nPlease review the reimbursement escalation requirements at: https://w.amazon.com/bin/view/IN_Reimbursement_Escalation\n\nPlease follow the template below and create a new SIM with all details:\n\n{ SIM Title}\n\n<Team Name> \"Escalation for SAFE-T Denied\" <MID>\n\n{SIM Body}\n\n1. MID*: (Mandatory for all teams)\n2. Order ID*: (Share only order ID related to the claims do not share claim IDs) (Mandatory for all teams)\nOrder ID format:\n[Enter order IDs line after line only without any commas or any other symbols]\n*Eg: Use below format only*\n402-XXXXXXX-XXXXXXX\n403-XXXXXXX-XXXXXXX\n404-XXXXXXX-XXXXXXX\n171-XXXXXXX-XXXXXXX\nReason code from dashboard *: (*Mandatory for AMs (SR and SVM SIMs not for SP SEED))\n\n(Use the SAFE-T claim Dashboard to understand the status and denial reason on the SAFE-T claims. Note: This query is applicable only for SAFE-T claims. Note: If you do not have access to the dashboard link, please request access via https://permissions.amazon.com/a/team/SR_SAFET_CLAIMS )\n\nEg: Format : CTR_POLICY_VIOLATION(mention no. of claims affected) , POLICY_DENIAL\nNote: no. of claims affected) (Please use comma for separating reason codes only and put affected claim numbers in (brackets) only. Put commas after brackets ended\n3. Yoda Dashboard attached? (Y/N): (Mandatorily attach Yoda Dashboard Result in .csv or .xlsx (Account Management/category/sales and other team apart from SP-SEED)\n4. First level deep dives done as per SR Escalation wiki?: (Y/N) If yes, explain what first level deep dives done*: (*Account Management/category/sales and other team apart from SP-SEED)\n\n(For SR SIMs and SVM SIMs only not SP SEED)\n\nWiki: https://w.amazon.com/bin/view/IN_Reimbursement_Escalation\n\n4. For CTR related denials, please attach Network abuse proof or buyer abuse SIM/ARM SIM*: (*Account Management/category/sales and other team apart from SP-SEED)\n\n5. Provide detailed comments on why escalation and reimbursement is required: (Do not copy paste seller seller's VOS only please do a first level deep dives and mention why escalation or reimbursement required) * (Mandatory for all)\n\nNext Steps for requester:\n_____________________________________________________________________________________________\nPlease raise a new valid SIM after following all steps in the concerned wiki.\n_____________________________________________________________________________________________\n\nEnsure all mandatory requirements listed in the wiki are included while filing an escalation SIM.\n\nThanks",
   "feesOverrideKeywords": [
     "weight handling fee",
     "handling fee charged",
@@ -510,7 +511,180 @@
       "claimWindowDays": 45,
       "claimWindowFrom": "refund_date",
       "sampleFormat": "Case ID: [SAFE-T case id]\nSeller ID: [seller merchant id]\nOrder ID: [e.g. 408-3363912-8812310]\nSAFE-T Claim ID: [e.g. 93512-10510-1119413]"
+    },
+    {
+      "id": "ef_safe_t_denial",
+      "name": "EF - SAFE-T Denial Dispute",
+      "parent": "EF Channel",
+      "assignee": null,
+      "bucketName": "SAFE-T Denial Dispute",
+      "primaryIdField": "Order ID",
+      "primaryIdRegex": "\\d{3}-\\d{7}-\\d{7}",
+      "isEFChannel": true,
+      "efSubType": "denial",
+      "requiresYodaLookup": true,
+      "exclusiveKeywords": [
+        "escalation for safe-t denied",
+        "safe-t denied",
+        "denial dispute",
+        "safe-t denial",
+        "claim denied",
+        "claims denied"
+      ],
+      "keywords": [
+        "safe-t",
+        "denied",
+        "easyship",
+        "easy ship",
+        "seller flex",
+        "sellerflex",
+        "mfn",
+        "self ship",
+        "selfship"
+      ],
+      "mandatoryFields": [
+        "Merchant ID",
+        "Order ID",
+        "Reason Code",
+        "Yoda Dashboard",
+        "Deep Dive Done"
+      ],
+      "optionalFields": [
+        "CTR Proof",
+        "Comments"
+      ],
+      "claimWindowDays": 45,
+      "claimWindowFrom": "refund_date",
+      "sampleFormat": "Title: <Team Name> \"Escalation for SAFE-T Denied\" <MID>\n\n1. MID: [merchant id]\n2. Order ID(s):\n[Enter order IDs line after line only without commas]\n402-XXXXXXX-XXXXXXX\n403-XXXXXXX-XXXXXXX\n\n3. Reason code from dashboard: [e.g. CTR_POLICY_VIOLATION(5), POLICY_DENIAL(3)]\n4. Yoda Dashboard attached? (Y/N): Y\n5. First level deep dives done as per SR Escalation wiki? (Y/N): Y\n   If yes, explain: [details]\n6. For CTR denials, attach Network abuse proof or buyer abuse SIM/ARM SIM\n7. Detailed comments on why escalation and reimbursement is required: [explanation]"
+    },
+    {
+      "id": "ef_safe_t_unable_to_file",
+      "name": "EF - SAFE-T Unable to File Claim",
+      "parent": "EF Channel",
+      "assignee": null,
+      "bucketName": "SAFE-T Unable to File",
+      "primaryIdField": "Order ID",
+      "primaryIdRegex": "\\d{3}-\\d{7}-\\d{7}",
+      "isEFChannel": true,
+      "efSubType": "unable_to_file",
+      "requiresYodaLookup": true,
+      "exclusiveKeywords": [
+        "escalation for safe-t unable to file",
+        "unable to file claim",
+        "unable to file safe-t",
+        "cannot file claim",
+        "cannot file safe-t"
+      ],
+      "keywords": [
+        "safe-t",
+        "unable to file",
+        "cannot file",
+        "easyship",
+        "easy ship",
+        "seller flex",
+        "sellerflex",
+        "mfn",
+        "self ship",
+        "selfship"
+      ],
+      "mandatoryFields": [
+        "Merchant ID",
+        "Order ID",
+        "Order Screenshot",
+        "Deep Dive Done"
+      ],
+      "optionalFields": [
+        "Return Mailing Label Images",
+        "Returned Item Images",
+        "Reason for Filing",
+        "Video Evidence"
+      ],
+      "claimWindowDays": 45,
+      "claimWindowFrom": "refund_date",
+      "sampleFormat": "Title: <Team Name> \"Escalation for SAFE-T Unable to file claim\" <MID>\n\n1. MID: [merchant id]\n2. Order ID(s):\n[Enter order IDs line after line only without commas]\n402-XXXXXXX-XXXXXXX\n403-XXXXXXX-XXXXXXX\n\n3. Screenshot of the order(s): [attached]\n4. 1st Level Deep Dive done as per Section 3.2 of wiki (Y/N): Y\n\nOptional:\na. Images of Return Mailing Label:\nb. Images of returned item:\nc. Detailed reason for filing claim:\nd. Video evidence of packing and unpacking if seller under VEP"
+    },
+    {
+      "id": "ef_safe_t_clawback",
+      "name": "EF - SAFE-T Clawback",
+      "parent": "EF Channel",
+      "assignee": null,
+      "bucketName": "SAFE-T Clawback",
+      "primaryIdField": "Order ID",
+      "primaryIdRegex": "\\d{3}-\\d{7}-\\d{7}",
+      "isEFChannel": true,
+      "efSubType": "clawback",
+      "requiresYodaLookup": true,
+      "exclusiveKeywords": [
+        "escalation for safe-t clawback",
+        "safe-t clawback",
+        "clawback escalation"
+      ],
+      "keywords": [
+        "safe-t",
+        "clawback",
+        "claw back",
+        "easyship",
+        "easy ship",
+        "seller flex",
+        "sellerflex",
+        "mfn",
+        "self ship",
+        "selfship"
+      ],
+      "mandatoryFields": [
+        "Merchant ID",
+        "Order ID",
+        "Reason for Escalation"
+      ],
+      "optionalFields": [],
+      "claimWindowDays": 45,
+      "claimWindowFrom": "refund_date",
+      "sampleFormat": "Title: <Team Name> \"Escalation for SAFE-T Clawback\" <MID>\n\n1. MID: [merchant id]\n2. Order ID(s):\n[Enter order IDs line after line only without commas]\n402-XXXXXXX-XXXXXXX\n403-XXXXXXX-XXXXXXX\n\n3. Reason for Escalation: [detailed reason]"
     }
+  ],
+  "efReasonCodeMapping": {
+    "INSPECTED_FORWARD_LEG_INSPECTION_FAILED": "dhrubora",
+    "INSPECTED_IMAGE_MISMATCH": "bamulyao",
+    "SECURED_RETURN_RTS_IMAGES_MISMATCH": "snshekar",
+    "SELLER_ABUSIVE_VERIFIED": "snshekar",
+    "SELLER_ABUSIVE_VERIFIED_BLOCKED": "snshekar",
+    "CTR": "mansilko",
+    "CTR_POLICY_VIOLATION": "mansilko",
+    "CTR_REJECT": "mansilko",
+    "RNOTR_SELLER_REFUSED_DISPOSED": "khursheq",
+    "WINDOW_EXPIRED": "snshekar",
+    "RE_EVALUATION": "khursheq",
+    "REEVALUATION": "khursheq",
+    "_DEFAULT_": "mansilko",
+    "_MFN_": "dhrubora"
+  },
+  "efChannelKeywords": [
+    "easyship",
+    "easy ship",
+    "seller flex",
+    "sellerflex",
+    "sp seller flex",
+    "mfn",
+    "self ship",
+    "selfship",
+    "merchant fulfilled",
+    "ef-",
+    "ef -",
+    "ef channel",
+    "external fulfillment",
+    "external fulfilment",
+    "account management"
+  ],
+  "efTitlePatterns": [
+    "escalation for safe-t denied",
+    "escalation for safe-t unable",
+    "escalation for safe-t clawback",
+    "safe-t denied",
+    "safe-t claim denied",
+    "safe-t claim denial",
+    "safe-t claims denied",
+    "safe-t unable to file",
+    "safe-t clawback"
   ],
   "fieldAliases": {
     "Removal Order ID": [
@@ -655,6 +829,7 @@
       "merchant_id",
       "merchant token",
       "merchant token id",
+      "mid",
       "seller id",
       "sellerid",
       "seller_id",
@@ -769,6 +944,76 @@
       "merchant id",
       "merchant token",
       "amazon seller id"
+    ],
+    "Reason Code": [
+      "reason code",
+      "reason codes",
+      "reason code from dashboard",
+      "resolution code",
+      "denial reason",
+      "denial code",
+      "safe-t reason",
+      "safet reason",
+      "reason code from"
+    ],
+    "Yoda Dashboard": [
+      "yoda dashboard attached",
+      "yoda dashboard",
+      "yoda attached",
+      "dashboard attached",
+      "yoda result",
+      "yoda screenshot",
+      "yoda"
+    ],
+    "Deep Dive Done": [
+      "deep dive done",
+      "deep dives done",
+      "first level deep dive",
+      "first level deep dives",
+      "1st level deep dive",
+      "deep dive",
+      "first level deep dives done"
+    ],
+    "Order Screenshot": [
+      "screenshot of the order",
+      "screenshot of the orders",
+      "order screenshot",
+      "screenshot",
+      "screenshots"
+    ],
+    "CTR Proof": [
+      "ctr proof",
+      "network abuse proof",
+      "buyer abuse sim",
+      "buyer abuse",
+      "arm sim",
+      "abuse proof"
+    ],
+    "Reason for Escalation": [
+      "reason for escalation",
+      "reason for filing",
+      "escalation reason",
+      "reason",
+      "detailed reason"
+    ],
+    "Return Mailing Label Images": [
+      "return mailing label",
+      "mailing label images",
+      "mailing label",
+      "return label"
+    ],
+    "Returned Item Images": [
+      "images of returned item",
+      "returned item images",
+      "returned item",
+      "return images"
+    ],
+    "Video Evidence": [
+      "video evidence",
+      "packing video",
+      "unpacking video",
+      "vep video",
+      "video proof"
     ]
   }
 }

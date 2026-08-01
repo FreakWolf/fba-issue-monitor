@@ -1,0 +1,372 @@
+FBA ISSUE MONITOR - REQUIRED FORMATS FOR ALL CASES
+====================================================
+
+================================================================================
+1. REMOVAL SHIPMENT LOST (NOT DELIVERED)
+================================================================================
+Assignee: nitheraj
+Claim window: 30 days from removal order completion date
+
+Required Format:
+  Removal Order ID: [e.g. 260601191A]
+  Tracking ID (AWB): [carrier tracking number]
+  SPS Case ID: [case id from SPS]
+  FC ID: [fulfillment center id]
+  FNSKU: [e.g. X002EKIG17]
+  Quantity: [number of units lost]
+
+  Optional:
+  - Copy of POD
+  - FC team confirmation
+
+
+================================================================================
+2. REMOVAL SHIPMENT LOST (DELIVERED BUT NOT RECEIVED)
+================================================================================
+Assignee: nitheraj
+Claim window: 7 days from shipment delivery date
+
+Required Format:
+  Removal Order ID: [e.g. 260601191A]
+  Tracking ID (AWB): [carrier tracking number]
+  SPS Case ID: [case id]
+  FC ID: [fulfillment center id]
+  FNSKU: [e.g. X002EKIG17]
+  Quantity: [number of units]
+
+  Optional:
+  - Copy of POD
+
+
+================================================================================
+3. REMOVAL ORDER DAMAGED
+================================================================================
+Assignee: nitheraj
+Claim window: 7 days from shipment delivery date
+
+Required Format:
+  Removal Order ID: [e.g. 260601191A]
+  Tracking ID (AWB): [carrier tracking]
+  FC ID: [fulfillment center id]
+  Case ID: [case id]
+  FNSKU / LPN of damaged item: [e.g. X002EKIG17]
+  Quantity: [damaged units]
+
+  Mandatory attachments:
+  - Unboxing Video (video showing seller accepting package from delivery
+    associate, overview of box, unpacking process, opening each item)
+  - Product images (all 6 sides of box + damage close-up + tracking labels
+    + packing slips)
+  - Copy of POD (calling out units received short/damaged, signed by both
+    parties)
+
+  Mandatory checks before accepting delivery:
+  - Verify ship-to address on shipping label
+  - Inspect all 6 sides of box for Amazon-branded tape integrity
+  - Report any tampering on POD with company seal + signatures of consignee
+    and consignor
+  - Request open box delivery if visual signs of damage/tampering
+
+
+================================================================================
+4. REMOVAL - MISSING UNITS / SWITCHEROO / MAIN ITEM MISSING
+================================================================================
+Assignee: nitheraj
+Claim window: 15 days from shipment delivery date
+
+Required Format:
+  1. Issue type: [Missing Accessory / Main Unit Missing / Switcheroo / Short Shipment]
+  2. SPS Case ID: [case id]
+  3. Within claim window (Yes/No): Yes
+  4. Removal Order ID: [e.g. 260601191A]
+  5. FC ID: [fulfillment center id]
+  6. Tracking ID (AWB): [carrier tracking]
+  7. LPN and FNSKU: [e.g. X002EKIG17 - 1 unit missing]
+  8. Quantity: [total units missing]
+
+  Mandatory attachments:
+  - Unboxing Video
+  - Clear images of unit received (all 6 sides + FNSKU/LPN label)
+  - Copy of POD
+
+
+================================================================================
+5. MISSING FROM INBOUND (MFI)
+================================================================================
+Assignee: vishancm
+Claim window: 60 days from inbound shipment delivery
+
+Required Format:
+  Shipment ID: [e.g. FBA15LRHVTK2]
+    (Max 10 per SIM for AM/Sales/Category, Max 1 for SP-SEED)
+  Merchant ID: [seller merchant id]
+  SPS Case ID: [case id]
+  Tracking ID (Partnered Carrier): [carrier tracking number]
+  FNSKU and claim Quantity:
+    - [FNSKU 1] - [X units missing]
+
+  Required Documents:
+  - Partnered Carrier: Stock Transfer Note (STN) or Delivery Challan
+  - Non-Partnered Carrier: EPOD + images of all pages of STN with FC stamp
+  - High-value shipments (>INR 50K): Invoice or Proof of Purchase
+
+  Note: If seller used Amazon Partnered Carrier and inventory not received
+  within 14 business days from pick-up, reimbursement is automatic.
+
+  Optional:
+  - Tracking ID
+  - STN
+  - EPOD
+  - Invoice
+
+
+================================================================================
+6. WAREHOUSE LOST
+================================================================================
+Assignee: harikks
+Claim window: 60 days from inventory adjustment date
+
+Required Format:
+  Merchant ID: [seller merchant id]
+  SPS Case ID: [case id]
+  FNSKU: [e.g. X002EKIG17]
+  Quantity: [impacted units]
+
+  Optional:
+  - Transaction ID: [inventory adjustment transaction id]
+
+
+================================================================================
+7. WAREHOUSE DAMAGED
+================================================================================
+Assignee: harikks
+Claim window: 60 days from inventory adjustment date
+
+Required Format:
+  Merchant ID: [seller merchant id]
+  SPS Case ID: [case id]
+  FNSKU: [e.g. X002EKIG17]
+  Quantity: [damaged units]
+
+  Optional:
+  - Transaction ID: [inventory adjustment transaction id]
+
+
+================================================================================
+8. ORDER RELATED - CUSTOMER DAMAGED RETURN
+================================================================================
+Assignee: ankiwkum
+Claim window: 45 days from refund date
+
+Required Format:
+  Merchant ID: [seller merchant id]
+  SPS Case ID: [case id]
+  Order ID: [e.g. 408-3363912-8812310]
+  Prior Credit Check: [Yes/No]
+  Refund Issued Date: [DD/MM/YYYY]
+
+
+================================================================================
+9. ORDER RELATED - LOST IN TRANSIT
+================================================================================
+Assignee: ankiwkum
+Claim window: 45 days from refund date
+
+Required Format:
+  Merchant ID: [seller merchant id]
+  SPS Case ID: [case id]
+  Order ID: [e.g. 408-3363912-8812310]
+  Prior Credit Check: [Yes/No]
+  Refund Issued Date: [DD/MM/YYYY]
+
+
+================================================================================
+10. ORDER RELATED - DELIVERY DISPUTE / EASY SHIP / RTO
+================================================================================
+Assignee: ankiwkum
+Claim window: 45 days from refund date
+
+Required Format:
+  Merchant ID: [seller merchant id]
+  Order ID: [e.g. 402-5431835-7456326]
+  SPS Case ID: [case id if any]
+  Reason for dispute: [Window Expired / RTO wrong location]
+
+
+================================================================================
+11. SAFE-T CLAIM DISPUTE
+================================================================================
+Assignee: (not assigned)
+Claim window: 45 days from refund date
+
+Required Format:
+  Case ID: [SAFE-T case id]
+  Seller ID: [seller merchant id]
+  Order ID: [e.g. 408-3363912-8812310]
+  SAFE-T Claim ID: [e.g. 93512-10510-1119413]
+
+
+================================================================================
+12. WEIGHT / DIMENSION / FEES - OUT OF SCOPE (AUTO-RESOLVE)
+================================================================================
+Action: Auto-resolve with redirect comment
+
+Any ticket mentioning weight/dimension/fees keywords is immediately marked
+Out of Scope and resolved with the following redirect:
+
+  For Easy Ship fees:
+    C: Easy Ship
+    T: Program Problem
+    I: Weight Mismatch
+    Group: Amazon Easy Ship Program
+
+  For FBA/Seller Flex fees:
+    C: Fulfillment By Amazon
+    T: Shipping Claims
+    I: Fees Escalations
+    Group: T4 Credit Ops Project IN
+
+Note: Fee keywords on template selection lines (e.g. "Select only one")
+are ignored to avoid false positives.
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+
+
+================================================================================
+EF CHANNEL - SAFE-T ESCALATIONS (EasyShip / Seller Flex / MFN)
+================================================================================
+
+These are External Fulfillment channel SAFE-T escalation tickets.
+Assignment is based on Yoda dashboard lookup (Channel + Final Resolution).
+
+Yoda Dashboard: https://yoda-insights.corp.amazon.com/drag-n-drop/view-dataset?dashboardId=7d97f3d6-275a-42ef-83eb-fd2c96e49271
+
+Steps:
+  1. Open Yoda → click "SAFET Raw for all Channels" tab
+  2. Expand Controls → Enter Order IDs in the Order ID filter
+  3. Check results: Channel column + Final Resolution column
+  4. Majority Channel determines MFN vs EasyShip/SellerFlex
+  5. Majority Final Resolution determines assignee
+
+────────────────────────────────────────────────────────────────────────────────
+REASON CODE → ASSIGNEE MAPPING
+────────────────────────────────────────────────────────────────────────────────
+
+  Channel: MFN (any reason code)              → dhrubora
+  INSPECTED_FORWARD_LEG_INSPECTION_FAILED     → dhrubora
+  INSPECTED_IMAGE_MISMATCH                    → bamulyao
+  SECURED_RETURN_RTS_IMAGES_MISMATCH          → snshekar
+  SELLER_ABUSIVE_VERIFIED                     → snshekar
+  SELLER_ABUSIVE_VERIFIED_BLOCKED             → snshekar
+  CTR (any CTR rejects or returns)            → mansilko
+  RNOTR_SELLER_REFUSED_DISPOSED               → khursheq
+  Re-evaluation (granted but wants more)      → khursheq
+  WINDOW_EXPIRED                              → snshekar
+  Any other reason codes                      → mansilko
+
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+13. EF - SAFE-T DENIAL DISPUTE
+================================================================================
+Assignee: Determined by Yoda lookup (see mapping above)
+Claim window: 45 days from refund date
+
+Required Format:
+  Title: <Team Name> "Escalation for SAFE-T Denied" <MID>
+
+  1. MID: [merchant id]
+  2. Order ID(s):
+  [Enter order IDs line after line only without commas]
+  402-XXXXXXX-XXXXXXX
+  403-XXXXXXX-XXXXXXX
+
+  3. Reason code from dashboard: [e.g. CTR_POLICY_VIOLATION(5), POLICY_DENIAL(3)]
+     (Use comma for separating reason codes, affected claim numbers in brackets)
+  4. Yoda Dashboard attached? (Y/N): Y
+  5. First level deep dives done as per SR Escalation wiki? (Y/N): Y
+     If yes, explain: [details of what was checked]
+  6. For CTR denials: attach Network abuse proof or buyer abuse SIM/ARM SIM
+  7. Detailed comments on why escalation and reimbursement is required:
+     [Do not copy paste seller's VOS — do first level deep dive and explain why]
+
+  Notes:
+  - Reason code is mandatory for AM teams (SR and SVM SIMs), not for SP SEED
+  - Yoda Dashboard screenshot mandatory for SR and SVM SIMs
+  - Deep dive mandatory for AM teams (SR and SVM SIMs)
+  - Wiki: https://w.amazon.com/bin/view/IN_Reimbursement_Escalation
+
+
+================================================================================
+14. EF - SAFE-T UNABLE TO FILE CLAIM
+================================================================================
+Assignee: Determined by Yoda lookup (see mapping above)
+Claim window: 45 days from refund date
+
+Required Format:
+  Title: <Team Name> "Escalation for SAFE-T Unable to file claim" <MID>
+
+  1. MID: [merchant id]
+  2. Order ID(s):
+  [Enter order IDs line after line only without commas]
+  402-XXXXXXX-XXXXXXX
+  403-XXXXXXX-XXXXXXX
+
+  3. Screenshot of the order(s): [attached]
+  4. 1st Level Deep Dive done as per Section 3.2 of wiki (Y/N): Y
+     Wiki: https://w.amazon.com/bin/view/IN_Reimbursement_Escalation
+
+  Optional (if required by wiki section 3.2):
+  a. Images of Return Mailing Label:
+  b. Images of returned item:
+  c. Detailed reason for filing claim:
+  d. Video evidence of packing and unpacking if seller under VEP
+
+
+================================================================================
+15. EF - SAFE-T CLAWBACK
+================================================================================
+Assignee: Determined by Yoda lookup (see mapping above)
+Claim window: 45 days from refund date
+
+Required Format:
+  Title: <Team Name> "Escalation for SAFE-T Clawback" <MID>
+
+  1. MID: [merchant id]
+  2. Order ID(s):
+  [Enter order IDs line after line only without commas]
+  402-XXXXXXX-XXXXXXX
+  403-XXXXXXX-XXXXXXX
+
+  3. Reason for Escalation: [detailed reason why clawback should be reversed]
+
+
+================================================================================
+AUTO-MODE BEHAVIOR
+================================================================================
+
+When Auto Mode is enabled, the extension runs every 5 minutes and:
+
+  1. Scans unassigned tickets in the Reimbursements India queue
+  2. Classifies each ticket
+  3. For each ticket, takes action automatically:
+
+     a. Weight/Dimension/Fees → Auto-resolve with out-of-scope comment
+     b. EF Channel (EasyShip/SellerFlex/MFN + SAFE-T):
+        - Extract Order IDs from ticket
+        - Open Yoda dashboard (background tab)
+        - Enter Order IDs, scrape Channel + Final Resolution
+        - Determine assignee from majority values
+        - Auto-assign to correct owner
+     c. Wiki Not Followed (missing mandatory fields) → Auto-resolve with template
+     d. Classified + All Fields Present → Auto-assign to designated owner
+
+  No manual intervention required. Chrome must be running.
+
+================================================================================
+END OF DOCUMENT
+================================================================================

@@ -13,6 +13,15 @@
       <button id="clearBtn">🗑️ Clear</button>
     </div>
   </div>
+  <div class="auto-mode-row">
+    <label class="toggle-label">
+      <input type="checkbox" id="autoModeToggle">
+      <span>Auto Mode</span>
+    </label>
+    <span class="auto-mode-hint" id="autoModeHint">Manual</span>
+    <button id="uploadSafetBtn" class="upload-btn">📂 Upload SAFET Excel</button>
+    <input type="file" id="safetFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+  </div>
   <div class="stats" id="stats"></div>
   <div class="status" id="status"></div>
   <div class="tabs">
@@ -22,6 +31,7 @@
     <button class="tab-btn" data-filter="resolved">✅ Resolved</button>
   </div>
   <div class="findings" id="findings"></div>
+  <script src="xlsx.min.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

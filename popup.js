@@ -4,12 +4,13 @@ let rulesData = null;
 document.addEventListener("DOMContentLoaded", async () => {
   rulesData = await fetch(chrome.runtime.getURL("rules.json")).then(r => r.json());
   await render();
+  await initAutoModeToggle();
 
   document.getElementById("scanBtn").addEventListener("click", async () => {
     setStatus("Scanning... (15-30s)");
     const r = await chrome.runtime.sendMessage({ action: "manualScan" });
-    if (r.success) setStatus(`✅ Active: ${r.activeCount} | New: ${r.newCount} | Resolved: ${r.resolvedCount}`);
-    else setStatus(`❌ ${r.error}`);
+    if (r.success) setStatus(`Done. Active: ${r.activeCount} | New: ${r.newCount} | Resolved: ${r.resolvedCount}`);
+    else setStatus(`Error: ${r.error}`);
     await render();
   });
 
@@ -33,6 +34,93 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("findings").addEventListener("click", handleActionClick);
 });
+
+async function initAutoModeToggle() {
+  const toggle = document.getElementById("autoModeToggle");
+  const hint = document.getElementById("autoModeHint");
+  const res = await chrome.runtime.sendMessage({ action: "getAutoMode" });
+  toggle.checked = res.autoMode || false;
+  hint.textContent = toggle.checked ? "Autonomous" : "Manual";
+  toggle.addEventListener("change", async () => {
+    await chrome.runtime.sendMessage({ action: "setAutoMode", enabled: toggle.checked });
+    hint.textContent = toggle.checked ? "Autonomous" : "Manual";
+  });
+
+  // SAFET Excel upload
+  const uploadBtn = document.getElementById("uploadSafetBtn");
+  const fileInput = document.getElementById("safetFileInput");
+  uploadBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    uploadBtn.textContent = "⏳ Processing...";
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const allRows = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
+
+      // Find the header row (contains "Order ID" and "Channel")
+      let headerIdx = -1;
+      for (let i = 0; i < Math.min(allRows.length, 20); i++) {
+        const row = allRows[i] || [];
+        if (row.some(cell => String(cell).toLowerCase().includes("order id")) &&
+            row.some(cell => String(cell).toLowerCase().includes("channel"))) {
+          headerIdx = i;
+          break;
+        }
+      }
+      if (headerIdx === -1) {
+        uploadBtn.textContent = "❌ No header row found";
+        return;
+      }
+
+      const headers = allRows[headerIdx].map(h => String(h).trim());
+      console.log("[Popup] Headers at row", headerIdx, ":", headers.join(" | "));
+
+      // Find column indices
+      const orderIdIdx = headers.findIndex(h => /order\s*id/i.test(h));
+      const channelIdx = headers.findIndex(h => /^channel$/i.test(h));
+      const finalResIdx = headers.findIndex(h => /final\s*resolution$/i.test(h));
+
+      if (orderIdIdx === -1) {
+        uploadBtn.textContent = "❌ No 'Order ID' column found";
+        return;
+      }
+
+      console.log("[Popup] Columns - OrderID:", orderIdIdx, "Channel:", channelIdx, "FinalRes:", finalResIdx);
+
+      // Extract data rows (after header), keeping only essential fields
+      const slimData = [];
+      for (let i = headerIdx + 1; i < allRows.length; i++) {
+        const row = allRows[i];
+        if (!row || row.length < 3) continue;
+        const orderId = String(row[orderIdIdx] || "").trim();
+        if (!orderId || orderId.length < 5) continue; // Skip empty/invalid
+        slimData.push({
+          o: orderId,
+          c: channelIdx >= 0 ? String(row[channelIdx] || "").trim() : "",
+          r: finalResIdx >= 0 ? String(row[finalResIdx] || "").trim() : ""
+        });
+      }
+
+      await chrome.storage.local.set({ safetData: slimData, safetUploadedAt: new Date().toISOString(), safetFileName: file.name });
+      uploadBtn.textContent = `✅ ${slimData.length} orders loaded`;
+      console.log("[Popup] SAFET data loaded:", slimData.length, "rows");
+    } catch (err) {
+      uploadBtn.textContent = "❌ " + err.message;
+      console.error("[Popup] SAFET upload error:", err);
+    }
+  });
+
+  // Show current SAFET data status
+  const { safetData, safetUploadedAt, safetFileName } = await chrome.storage.local.get(["safetData", "safetUploadedAt", "safetFileName"]);
+  if (safetData && safetData.length > 0) {
+    const ago = safetUploadedAt ? timeAgo(safetUploadedAt) : "";
+    uploadBtn.textContent = `📂 SAFET: ${safetData.length} rows (${ago})`;
+  }
+}
 
 async function handleActionClick(e) {
   const btn = e.target.closest("button[data-action-type]");
@@ -93,7 +181,7 @@ async function handleActionClick(e) {
     const commentText = generateWikiNotFollowedComment(finding);
     const labelName = rulesData.labels?.wikiNotFollowed || "Wiki/Template not followed";
 
-    // ✨ Get bucketName from classified category
+    // Get bucketName from classified category
     const cls = finding.classification || {};
     const category = cls.status === "CLASSIFIED" ? cls.category :
                      (cls.status === "AMBIGUOUS" ? cls.top2?.[0]?.category : null);
@@ -124,11 +212,60 @@ async function handleActionClick(e) {
     if (!res.success) btn.disabled = false;
     return;
   }
+
+  if (actionType === "yoda_lookup") {
+    const orderIds = extractOrderIdsFromText(finding.rawDescription || "");
+    if (orderIds.length === 0) {
+      btn.textContent = "❌ No Order IDs found";
+      return;
+    }
+    btn.textContent = `⏳ Yoda lookup started...`; btn.disabled = true;
+
+    // Start lookup in background — it will save results to storage
+    // Popup may close before it finishes, that's OK
+    chrome.runtime.sendMessage({ action: "yodaLookupBg", orderIds, issueId });
+
+    // Update finding to show lookup is in progress
+    const { findings: allFindings = {} } = await chrome.storage.local.get(["findings"]);
+    if (allFindings[issueId]) {
+      allFindings[issueId].efYodaStatus = "in_progress";
+      await chrome.storage.local.set({ findings: allFindings });
+    }
+
+    btn.textContent = "⏳ Running in background... reopen popup to see result";
+    return;
+  }
+
+  if (actionType === "assign_ef") {
+    const assignee = btn.dataset.assignee;
+    if (!confirm(`Assign this EF ticket to ${assignee}?`)) return;
+    btn.textContent = "⏳ Assigning..."; btn.disabled = true;
+    const res = await chrome.runtime.sendMessage({ action: "assignIssueBg", issueId, username: assignee });
+    btn.textContent = res.success ? "✅ Assigned" : "❌ " + (res.error || "Failed");
+    if (!res.success) btn.disabled = false;
+    return;
+  }
+
+  if (actionType === "manual_check") {
+    chrome.notifications.create("manual-check-" + issueId, {
+      type: "basic",
+      iconUrl: "icons/icon128.png",
+      title: "⚠️ Manual Check Required",
+      message: "Order IDs are in an attachment. Please open the SIM, download the attachment, check the Order IDs manually, and assign to the correct owner."
+    });
+    return;
+  }
 }
 
 function generateWikiNotFollowedComment(finding) {
   const cls = finding.classification || {};
   const category = cls.status === "CLASSIFIED" ? cls.category : cls.top2?.[0]?.category;
+
+  // Use EF-specific template for EF channel tickets
+  if (category?.isEFChannel && rulesData.efWikiNotFollowedCommentTemplate) {
+    return rulesData.efWikiNotFollowedCommentTemplate;
+  }
+
   const missing = finding.fieldCheck?.missing || [];
   const sampleFormat = category?.sampleFormat || "[Sample format not available]";
   const claimDays = category?.claimWindowDays || "N/A";
@@ -194,13 +331,25 @@ function renderCard(f) {
   else if (cls.status === "REDIRECT") { clsBadge = `<span class="badge info">REDIRECT</span>`; categoryName = cls.category.name; }
   else { clsBadge = `<span class="badge err">UNCLASSIFIABLE</span>`; }
 
-  const action = decideAction(cls, fc);
+  const action = decideAction(cls, fc, f);
 
   const missingLine = fc.missing.length > 0
     ? `<div class="miss">⚠️ Missing: ${fc.missing.join(", ")}</div>`
     : (fc.present.length > 0 ? `<div class="ok-line">✅ All mandatory fields present</div>` : "");
   const optionalLine = fc.optionalMissing && fc.optionalMissing.length > 0
     ? `<div class="opt">💡 Recommended: ${fc.optionalMissing.join(", ")}</div>` : "";
+
+  // EF Channel info line
+  let efLine = "";
+  if (cls.category?.isEFChannel) {
+    const yodaData = f.efYodaData;
+    if (yodaData) {
+      efLine = `<div class="ef-info">📊 Yoda: Channel=${yodaData.majorityChannel || "?"} | Resolution=${yodaData.majorityResolution || "?"} | → ${yodaData.assignee || "?"}</div>`;
+    } else {
+      const orderCount = extractOrderIdsFromText(f.rawDescription || "").length;
+      efLine = `<div class="ef-info">📋 EF Channel (${cls.category.efSubType || "?"}) • ${orderCount} order(s) found • Needs Yoda lookup</div>`;
+    }
+  }
 
   const imgCount = atts.filter(a => a.type === "image").length;
   const vidCount = atts.filter(a => a.type === "video").length;
@@ -233,13 +382,14 @@ function renderCard(f) {
     <div class="cat">${categoryLine}</div>
     ${missingLine}
     ${optionalLine}
+    ${efLine}
     ${evidenceLine}
     ${actionBtnHtml ? `<div class="card-actions">${actionBtnHtml}</div>` : ""}
   `;
   return div;
 }
 
-function decideAction(cls, fc) {
+function decideAction(cls, fc, finding) {
   if (cls.status === "REDIRECT" && cls.category?.useOutOfScopeTemplate) {
     return { type: "out_of_scope", label: "🚫 Auto-Resolve Out of Scope", cssClass: "oos-btn" };
   }
@@ -249,6 +399,38 @@ function decideAction(cls, fc) {
       return { type: "out_of_scope", label: "🚫 Auto-Resolve Out of Scope", cssClass: "oos-btn" };
     }
   }
+
+  // EF Channel handling
+  if (cls.category?.isEFChannel) {
+    // Check if Order IDs are "Attached" — require manual check (highest priority)
+    const orderIdValue = fc.values?.["Order ID"] || "";
+    const rawDesc = finding?.rawDescription || "";
+    const isAttached = /^(attached|see\s*attach|in\s*attach|refer\s*attach|check\s*attach|file\s*attach)/i.test(orderIdValue.trim()) ||
+      /order\s*ids?\s*[:\-=]?\s*(attached|see\s*attach|in\s*attach)/i.test(rawDesc);
+    if (isAttached) {
+      return { type: "manual_check", label: "⚠️ Order IDs in attachment — Check manually", cssClass: "wiki-btn" };
+    }
+
+    // Check mandatory fields — if missing, show wiki not followed
+    if (fc.missing && fc.missing.length > 0) {
+      return { type: "wiki_not_followed", label: "🏷️ Resolve - Wiki Not Followed (EF)", cssClass: "wiki-btn" };
+    }
+
+    const yodaData = finding?.efYodaData;
+    if (yodaData && yodaData.assignee) {
+      return { type: "assign_ef", label: `🎯 Assign to ${yodaData.assignee} (EF: ${yodaData.majorityChannel || "?"})`, cssClass: "assign-btn", assignee: yodaData.assignee };
+    }
+    const yodaStatus = finding?.efYodaStatus;
+    if (yodaStatus === "in_progress") {
+      return { type: "yoda_lookup", label: "⏳ Yoda lookup in progress...", cssClass: "yoda-btn" };
+    }
+    if (yodaStatus === "error") {
+      return { type: "yoda_lookup", label: `❌ Yoda failed: ${finding?.efYodaError || "retry?"} — Click to retry`, cssClass: "yoda-btn" };
+    }
+    // No Yoda data yet — show lookup button
+    return { type: "yoda_lookup", label: "🔍 Lookup SAFET Data (EF Channel)", cssClass: "yoda-btn" };
+  }
+
   const hasCompleteDetails = fc.missing && fc.missing.length === 0 && fc.present && fc.present.length > 0;
   const category = cls.status === "CLASSIFIED" ? cls.category : (cls.status === "AMBIGUOUS" ? cls.top2?.[0]?.category : null);
   if ((cls.status === "CLASSIFIED" || cls.status === "AMBIGUOUS") && !hasCompleteDetails && fc.missing && fc.missing.length > 0) {
@@ -279,4 +461,9 @@ async function exportJson() {
 }
 function esc(s) {
   return String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function extractOrderIdsFromText(text) {
+  const re = /\b\d{3}-\d{7}-\d{7}\b/g;
+  const matches = (text || "").match(re) || [];
+  return [...new Set(matches)];
 }

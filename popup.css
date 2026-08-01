@@ -43,3 +43,23 @@ body { font-family: -apple-system, Segoe UI, sans-serif; margin: 0; width: 560px
 .wiki-btn { padding: 4px 10px; font-size: 11px; font-weight: 600; background: #f57c00; color: white; border: 0; border-radius: 3px; cursor: pointer; }
 .wiki-btn:hover:not(:disabled) { background: #ff9800; }
 .wiki-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Auto-mode toggle row */
+.auto-mode-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: #f0f4f8; border-bottom: 1px solid #e0e0e0; }
+.toggle-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.toggle-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2e7d32; cursor: pointer; }
+.auto-mode-hint { font-size: 11px; padding: 2px 8px; border-radius: 3px; font-weight: 600; }
+.auto-mode-hint { background: #e8f5e9; color: #2e7d32; }
+
+/* Yoda/EF button */
+.yoda-btn { padding: 4px 10px; font-size: 11px; font-weight: 600; background: #6a1b9a; color: white; border: 0; border-radius: 3px; cursor: pointer; }
+.yoda-btn:hover:not(:disabled) { background: #7b1fa2; }
+.yoda-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* EF info line */
+.ef-info { font-size: 11px; color: #6a1b9a; margin-top: 3px; padding: 2px 6px; background: #f3e5f5; border-radius: 3px; display: inline-block; }
+
+
+/* Upload button */
+.upload-btn { padding: 3px 8px; font-size: 10px; font-weight: 600; background: #1976d2; color: white; border: 0; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+.upload-btn:hover { background: #1565c0; }

@@ -59,6 +59,23 @@
     "fulfillment fee",
     "commission fee"
   ],
+  "azClaimsKeywords": [
+    "a-z claim",
+    "a-z claims",
+    "a-to-z claim",
+    "a-to-z claims",
+    "a to z claim",
+    "a to z claims",
+    "a2z claim",
+    "a2z claims",
+    "a-z guarantee",
+    "a-z guarantee claim",
+    "a-z guarantee claims",
+    "a to z guarantee",
+    "az claim",
+    "az claims"
+  ],
+  "azClaimsComment": "If your issue is about A-Z claims, please note that this is out of scope for Seller Reimbursement team. Please reach out to concerned POC. We are unaware of the same.",
   "feesOverrideCategory": {
     "id": "fees_out_of_scope",
     "name": "Weight / Dimension / Fees (Out of Scope)",

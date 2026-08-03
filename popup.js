@@ -177,6 +177,35 @@ async function handleActionClick(e) {
     return;
   }
 
+  if (actionType === "out_of_scope_az") {
+    const template = rulesData.azClaimsComment || "If your issue is about A-Z claims, please note that this is out of scope for Seller Reimbursement team. Please reach out to concerned POC. We are unaware of the same.";
+    const labelName = rulesData.labels?.outOfScope || "Issue Not Handled by SR";
+
+    if (!confirm(`Auto-resolve as OUT OF SCOPE (A-Z Claims)?\n\n1. Post A-Z comment\n2. Apply label: "${labelName}"\n3. Resolve\n\nProceed?`)) return;
+
+    btn.textContent = "⏳ Auto-resolving..."; btn.disabled = true;
+    const res = await chrome.runtime.sendMessage({
+      action: "fullAutoResolveBg", issueId,
+      options: {
+        commentText: template,
+        labelName,
+        autoSubmit: true,
+        markResolved: true,
+        resolveConfig: {
+          actionType: "out_of_scope",
+          summary: "out of scope - A-Z claims",
+          bucket: "General Enquiry",
+          claimStatus: "Denied",
+          subBucket: "Issue Not handled by SR",
+          reimbursementAmount: "0"
+        }
+      }
+    });
+    btn.textContent = res.success ? "✅ Resolved (A-Z Out of Scope)" : "⚠️ " + (res.message || res.error);
+    if (!res.success) btn.disabled = false;
+    return;
+  }
+
   if (actionType === "wiki_not_followed") {
     const commentText = generateWikiNotFollowedComment(finding);
     const labelName = rulesData.labels?.wikiNotFollowed || "Wiki/Template not followed";
@@ -393,6 +422,9 @@ function decideAction(cls, fc, finding) {
   if (cls.status === "REDIRECT" && cls.category?.useOutOfScopeTemplate) {
     return { type: "out_of_scope", label: "🚫 Auto-Resolve Out of Scope", cssClass: "oos-btn" };
   }
+  if (cls.status === "REDIRECT" && cls.category?.useAZTemplate) {
+    return { type: "out_of_scope_az", label: "🚫 Auto-Resolve Out of Scope (A-Z Claims)", cssClass: "oos-btn" };
+  }
   if (cls.status === "AMBIGUOUS" && cls.top2?.length >= 2) {
     const bothOutOfScope = cls.top2.every(t => t.category?.useOutOfScopeTemplate);
     if (bothOutOfScope) {
@@ -402,18 +434,23 @@ function decideAction(cls, fc, finding) {
 
   // EF Channel handling
   if (cls.category?.isEFChannel) {
-    // Check if Order IDs are "Attached" — require manual check (highest priority)
-    const orderIdValue = fc.values?.["Order ID"] || "";
-    const rawDesc = finding?.rawDescription || "";
-    const isAttached = /^(attached|see\s*attach|in\s*attach|refer\s*attach|check\s*attach|file\s*attach)/i.test(orderIdValue.trim()) ||
-      /order\s*ids?\s*[:\-=]?\s*(attached|see\s*attach|in\s*attach)/i.test(rawDesc);
-    if (isAttached) {
-      return { type: "manual_check", label: "⚠️ Order IDs in attachment — Check manually", cssClass: "wiki-btn" };
-    }
+    // SP-SEED exception: valid with just MID + Order ID, skip field check
+    const isSPSeed = /sp[-_\s]?seed/i.test(finding?.title || "") || /sp[-_\s]?seed/i.test(finding?.rawDescription || "");
 
-    // Check mandatory fields — if missing, show wiki not followed
-    if (fc.missing && fc.missing.length > 0) {
-      return { type: "wiki_not_followed", label: "🏷️ Resolve - Wiki Not Followed (EF)", cssClass: "wiki-btn" };
+    if (!isSPSeed) {
+      // Check if Order IDs are "Attached" — require manual check (highest priority)
+      const orderIdValue = fc.values?.["Order ID"] || "";
+      const rawDesc = finding?.rawDescription || "";
+      const isAttached = /^(attached|see\s*attach|in\s*attach|refer\s*attach|check\s*attach|file\s*attach)/i.test(orderIdValue.trim()) ||
+        /order\s*ids?\s*[:\-=]?\s*(attached|see\s*attach|in\s*attach)/i.test(rawDesc);
+      if (isAttached) {
+        return { type: "manual_check", label: "⚠️ Order IDs in attachment — Check manually", cssClass: "wiki-btn" };
+      }
+
+      // Check mandatory fields — if missing, show wiki not followed
+      if (fc.missing && fc.missing.length > 0) {
+        return { type: "wiki_not_followed", label: "🏷️ Resolve - Wiki Not Followed (EF)", cssClass: "wiki-btn" };
+      }
     }
 
     const yodaData = finding?.efYodaData;

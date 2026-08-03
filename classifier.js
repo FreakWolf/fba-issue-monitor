@@ -12,6 +12,10 @@ class IssueClassifier {
     const feesOverride = this.checkFeesOverride(normalized);
     if (feesOverride) return feesOverride;
 
+    // ═══ PRIORITY CHECK: A-Z Claims → always Out of Scope ═══
+    const azOverride = this.checkAZClaims(normalized);
+    if (azOverride) return azOverride;
+
     // ═══ PRIORITY CHECK #2: EF Channel detection ═══
     const efResult = this.checkEFChannel(normalized);
     if (efResult) return efResult;
@@ -154,6 +158,23 @@ class IssueClassifier {
       signals: matched.map(kw => `Fees override keyword "${kw}"`),
       message: `Fees/Weight/Dimension detected → Out of Scope (override). Matched: ${matched.join(", ")}`
     };
+  }
+
+  checkAZClaims(text) {
+    const keywords = this.rules.azClaimsKeywords || [];
+    for (const kw of keywords) {
+      const flex = this.escapeRegex(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}s?\\b`, "i").test(text)) {
+        return {
+          status: "REDIRECT",
+          category: { id: "az_claims_out_of_scope", name: "A-Z Claims (Out of Scope)", parent: "Out of Scope", assignee: null, bucketName: "General Enquiry", useOutOfScopeTemplate: false, useAZTemplate: true, applyLabel: "outOfScope" },
+          score: 999,
+          signals: [`A-Z Claims keyword "${kw}" detected`],
+          message: "A-Z Claims detected → Out of Scope for SR team"
+        };
+      }
+    }
+    return null;
   }
 
   scoreCategory(cat, text) {

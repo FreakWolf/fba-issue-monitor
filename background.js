@@ -329,6 +329,10 @@ class IssueClassifierWrapper {
     const feesOverride = this.checkFeesOverride(normalized);
     if (feesOverride) return feesOverride;
 
+    // ═══ PRIORITY CHECK: A-Z Claims → always Out of Scope ═══
+    const azOverride = this.checkAZClaims(normalized);
+    if (azOverride) return azOverride;
+
     // ═══ PRIORITY CHECK #2: EF Channel detection ═══
     const efResult = this.checkEFChannel(normalized);
     if (efResult) return efResult;
@@ -424,6 +428,22 @@ class IssueClassifierWrapper {
       message: `Fees/Weight/Dimension detected → Out of Scope (override). Matched: ${matched.join(", ")}`
     };
   }
+  checkAZClaims(text) {
+    const keywords = this.rules.azClaimsKeywords || [];
+    for (const kw of keywords) {
+      const flex = this.esc(kw).replace(/\s+/g, "\\s+");
+      if (new RegExp(`\\b${flex}s?\\b`, "i").test(text)) {
+        return {
+          status: "REDIRECT",
+          category: { id: "az_claims_out_of_scope", name: "A-Z Claims (Out of Scope)", parent: "Out of Scope", assignee: null, bucketName: "General Enquiry", useOutOfScopeTemplate: false, useAZTemplate: true, applyLabel: "outOfScope" },
+          score: 999,
+          signals: [`A-Z Claims keyword "${kw}" detected`],
+          message: "A-Z Claims detected → Out of Scope for SR team"
+        };
+      }
+    }
+    return null;
+  }
   scoreCategory(cat, text) {
     let score = 0; const signals = [];
     if (cat.primaryIdRegex && new RegExp(cat.primaryIdRegex, "i").test(text)) {
@@ -454,7 +474,7 @@ class IssueClassifierWrapper {
       let found = false, value = null, source = null;
       for (const alias of aliases) {
         const flexAlias = this.esc(alias).replace(/\s+/g, "\\s+");
-        const labelRe = new RegExp(`^\\s*(?:[\\dA-Za-z]+\\s*[.:\\-]\\s*)?${flexAlias}(?:\\s+[\\w/()\\[\\]?.]+){0,10}\\s*[:\\-=\\u2013\\u2014]\\s*(.*)$`, "i");
+        const labelRe = new RegExp(`^\\s*(?:[\\dA-Za-z]+[.)\\-:]*\\s*)?${flexAlias}(?:\\s+[\\w/()\\[\\]?.]+){0,10}\\s*[:\\-=\\u2013\\u2014]\\s*(.*)$`, "i");
         for (let i = 0; i < lines.length; i++) {
           const m = lines[i].match(labelRe);
           if (!m) continue;
@@ -591,16 +611,44 @@ async function runAutoMode() {
       if (cls.status === "REDIRECT" && cls.category?.useOutOfScopeTemplate) {
         console.log(`[AutoMode] Resolving out-of-scope: ${issueId}`);
         const result = await fullAutoResolveBg(issueId, {
-          comment: rules.outOfScopeCommentTemplate,
-          label: rules.labels.outOfScope,
-          bucket: cls.category.bucketName || "Fees Charged in Error",
-          subBucket: "Issue Not handled by SR",
-          claimStatus: "Denied",
-          summary: "out of scope",
-          reimbursementAmount: "0"
+          commentText: rules.outOfScopeCommentTemplate,
+          labelName: rules.labels.outOfScope,
+          autoSubmit: true,
+          markResolved: true,
+          resolveConfig: {
+            actionType: "out_of_scope",
+            summary: "out of scope",
+            bucket: cls.category.bucketName || "Fees Charged in Error",
+            claimStatus: "Denied",
+            subBucket: "Issue Not handled by SR",
+            reimbursementAmount: "0"
+          }
         });
         finding.autoProcessed = true;
         finding.autoAction = "resolved_out_of_scope";
+        finding.autoResult = result;
+        continue;
+      }
+
+      // ── OUT OF SCOPE (A-Z Claims) → auto-resolve ──
+      if (cls.status === "REDIRECT" && cls.category?.useAZTemplate) {
+        console.log(`[AutoMode] Resolving A-Z out-of-scope: ${issueId}`);
+        const result = await fullAutoResolveBg(issueId, {
+          commentText: rules.azClaimsComment,
+          labelName: rules.labels.outOfScope,
+          autoSubmit: true,
+          markResolved: true,
+          resolveConfig: {
+            actionType: "out_of_scope",
+            summary: "out of scope - A-Z claims",
+            bucket: "General Enquiry",
+            claimStatus: "Denied",
+            subBucket: "Issue Not handled by SR",
+            reimbursementAmount: "0"
+          }
+        });
+        finding.autoProcessed = true;
+        finding.autoAction = "resolved_az_out_of_scope";
         finding.autoResult = result;
         continue;
       }
@@ -615,25 +663,35 @@ async function runAutoMode() {
           continue;
         }
 
-        // Check mandatory fields first
-        const fieldCheck = classifier.checkMandatoryFields(finding.rawDescription, cls.category, finding.attachments || [], finding.externalLinks || []);
-        if (fieldCheck.missing.length > 0) {
-          // Wiki not followed
-          console.log(`[AutoMode] EF wiki not followed: ${issueId}, missing: ${fieldCheck.missing.join(", ")}`);
-          const comment = buildWikiNotFollowedComment(rules, cls.category, fieldCheck, finding.title);
-          const result = await fullAutoResolveBg(issueId, {
-            comment,
-            label: rules.labels.wikiNotFollowed,
-            bucket: cls.category.bucketName,
-            subBucket: "Wiki/Template not followed",
-            claimStatus: "Denied",
-            summary: "Wiki not followed",
-            reimbursementAmount: "0"
-          });
-          finding.autoProcessed = true;
-          finding.autoAction = "resolved_wiki_not_followed";
-          finding.autoResult = result;
-          continue;
+        // SP-SEED exception: skip field check, go straight to lookup
+        const isSPSeed = /sp[-_\s]?seed/i.test(finding.title || "") || /sp[-_\s]?seed/i.test(finding.rawDescription || "");
+
+        if (!isSPSeed) {
+          // Check mandatory fields first
+          const fieldCheck = classifier.checkMandatoryFields(finding.rawDescription, cls.category, finding.attachments || [], finding.externalLinks || []);
+          if (fieldCheck.missing.length > 0) {
+            // Wiki not followed
+            console.log(`[AutoMode] EF wiki not followed: ${issueId}, missing: ${fieldCheck.missing.join(", ")}`);
+            const comment = buildWikiNotFollowedComment(rules, cls.category, fieldCheck, finding.title);
+            const result = await fullAutoResolveBg(issueId, {
+              commentText: comment,
+              labelName: rules.labels.wikiNotFollowed,
+              autoSubmit: true,
+              markResolved: true,
+              resolveConfig: {
+                actionType: "wiki_not_followed",
+                summary: "Wiki not followed",
+                bucket: cls.category.bucketName,
+                claimStatus: "Denied",
+                subBucket: "Invalid (Incomplete Information)",
+                reimbursementAmount: "0"
+              }
+            });
+            finding.autoProcessed = true;
+            finding.autoAction = "resolved_wiki_not_followed";
+            finding.autoResult = result;
+            continue;
+          }
         }
 
         // Yoda lookup
@@ -660,13 +718,18 @@ async function runAutoMode() {
         console.log(`[AutoMode] Wiki not followed: ${issueId}`);
         const comment = buildWikiNotFollowedComment(rules, cat, finding.fieldCheck, finding.title);
         const result = await fullAutoResolveBg(issueId, {
-          comment,
-          label: rules.labels.wikiNotFollowed,
-          bucket: cat.bucketName,
-          subBucket: "Wiki/Template not followed",
-          claimStatus: "Denied",
-          summary: "Wiki not followed",
-          reimbursementAmount: "0"
+          commentText: comment,
+          labelName: rules.labels.wikiNotFollowed,
+          autoSubmit: true,
+          markResolved: true,
+          resolveConfig: {
+            actionType: "wiki_not_followed",
+            summary: "wiki not followed",
+            bucket: cat.bucketName,
+            claimStatus: "Denied",
+            subBucket: "Invalid (Incomplete Information)",
+            reimbursementAmount: "0"
+          }
         });
         finding.autoProcessed = true;
         finding.autoAction = "resolved_wiki_not_followed";

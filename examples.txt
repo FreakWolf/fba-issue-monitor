@@ -1,0 +1,601 @@
+FBA ISSUE MONITOR - EXAMPLES OF ACCEPTED & REJECTED TICKETS
+==============================================================
+Last Updated: August 2026
+
+For each category, this document shows:
+- ACCEPTED: Ticket with all fields properly filled → gets assigned
+- REJECTED: Ticket with missing/incomplete fields → gets wiki-not-followed response
+
+
+================================================================================
+1. REMOVAL SHIPMENT LOST (NOT DELIVERED)
+================================================================================
+
+--- ACCEPTED (All fields present → Assign to nitheraj) ---
+
+Title: *SR--12345* FBA Removal < Merchant ID: 9876543210 >
+Body:
+  Removal Order ID: 260601191A
+  Tracking ID (AWB): 14523698741
+  SPS Case ID: 1301856633847
+  FC ID: BLR7
+  FNSKU: X002EKIG17
+  Quantity: 3
+
+  POD: Attached
+
+Result: ✅ CLASSIFIED → Assign to nitheraj
+Bucket: Removal Lost
+
+--- REJECTED (Missing fields → Wiki Not Followed) ---
+
+Title: *SR--12345* FBA Removal < Merchant ID: 9876543210 >
+Body:
+  Removal Order ID: 260601191A
+  Tracking ID: 14523698741
+  Issue: My shipment was not delivered
+
+Result: ❌ Missing: SPS Case ID, FC ID, FNSKU, Quantity
+Action: Resolve with wiki-not-followed comment + sample format
+
+
+================================================================================
+2. REMOVAL SHIPMENT LOST (DELIVERED BUT NOT RECEIVED)
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *SR--12346* Removal Lost Delivered < MID: 1122334455 >
+Body:
+  Removal Order ID: 260601192B
+  Tracking ID: AWB789456123
+  SPS Case ID: 1301856633900
+  FC ID: DEL4
+  FNSKU: X003FKIG22
+  Quantity: 5
+
+  POD shows delivered but seller says not received.
+
+Result: ✅ CLASSIFIED → Assign to nitheraj
+Bucket: Removal Lost
+
+--- REJECTED ---
+
+Title: *SR--12346* Removal Lost < MID: 1122334455 >
+Body:
+  Hi team, my removal order shows delivered but I didn't get it.
+  Please help.
+
+Result: ❌ Missing: Removal Order ID, Tracking ID, SPS Case ID, FC ID, FNSKU, Quantity
+
+
+================================================================================
+3. REMOVAL ORDER DAMAGED
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *SR--12347* FBA Removal Damaged < MID: 5566778899 >
+Body:
+  Removal Order ID: 260601193C
+  Tracking ID (AWB): 98765432100
+  FC ID: HYD3
+  Case ID: 1301856634000
+  FNSKU: X004GLMN33
+  Quantity: 2
+
+  Unboxing Video: https://drive.google.com/file/d/abc123
+  Product Images: Attached (6 sided images + damage close-up)
+  POD: Attached (signed by both parties, notes damage)
+
+Result: ✅ CLASSIFIED → Assign to nitheraj
+Bucket: Removal Damages
+
+--- REJECTED ---
+
+Title: *SR--12347* FBA Removal Damaged < MID: 5566778899 >
+Body:
+  Removal Order ID: 260601193C
+  Tracking ID: 98765432100
+  FC ID: HYD3
+  Case ID: 1301856634000
+  FNSKU: X004GLMN33
+
+  Items received damaged in removal shipment.
+
+Result: ❌ Missing: Unboxing Video, Product Images, POD
+Action: Resolve with wiki-not-followed (mandatory attachments required)
+
+
+================================================================================
+4. REMOVAL - MISSING UNITS / SWITCHEROO
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *SR--12348* Removal Missing Units < MID: 2233445566 >
+Body:
+  1. Issue type: Switcheroo
+  2. SPS Case ID: 1301856634100
+  3. Within claim window: Yes
+  4. Removal Order ID: 260601194D
+  5. FC ID: BOM5
+  6. Tracking ID (AWB): 11223344556
+  7. LPN and FNSKU: X005HIJK44 - 2 units missing
+  8. Quantity: 2
+
+  Unboxing Video: https://drive.google.com/file/d/def456
+  Product Images: Attached (clear images of received unit + FNSKU label)
+  POD: Attached
+
+Result: ✅ CLASSIFIED → Assign to nitheraj
+Bucket: Switcheroo
+
+--- REJECTED ---
+
+Title: *SR--12348* Removal Short Shipment < MID: 2233445566 >
+Body:
+  Removal Order ID: 260601194D
+  Tracking ID: 11223344556
+  FNSKU: X005HIJK44
+  Quantity: 2 missing
+
+  I received fewer items than expected.
+
+Result: ❌ Missing: FC ID, SPS Case ID, Unboxing Video, Product Images, POD
+
+
+================================================================================
+5. MISSING FROM INBOUND (MFI)
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *SP--12349* MFI < Merchant ID: 3344556677 >
+Body:
+  Shipment ID: FBA15LRHVTK2
+  Merchant ID: 3344556677
+  SPS Case ID: 1301856634200
+  FNSKU and claim Quantity:
+    - X006MNOP55 - 10 units missing
+    - X007QRST66 - 5 units missing
+
+  Tracking ID (Partnered Carrier): FBAUP12345
+  STN: Attached (Stock Transfer Note with FC stamp)
+
+Result: ✅ CLASSIFIED → Assign to vishancm
+Bucket: MFI
+
+--- REJECTED ---
+
+Title: *SP--12349* MFI Inbound Missing < MID: 3344556677 >
+Body:
+  Shipment ID: FBA15LRHVTK2
+  My inbound shipment is showing short. 15 units are missing.
+  Please investigate.
+
+Result: ❌ Missing: Merchant ID, SPS Case ID, FNSKU, Quantity
+
+
+================================================================================
+6. WAREHOUSE LOST
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *SR--12350* FBA Warehouse Lost < MID: 4455667788 >
+Body:
+  Merchant ID: 4455667788
+  SPS Case ID: 1301856634300
+  FNSKU: X008UVWX77
+  Quantity: 8
+
+  Transaction ID: 66373930137572
+
+Result: ✅ CLASSIFIED → Assign to harikks
+Bucket: Warehouse Lost
+
+--- REJECTED ---
+
+Title: *SR--12350* FBA Inventory Lost < MID: 4455667788 >
+Body:
+  Merchant ID: 4455667788
+  My inventory is missing from the warehouse. About 8 units of ASIN B0ABC123.
+
+Result: ❌ Missing: SPS Case ID, FNSKU, Quantity
+
+
+================================================================================
+7. WAREHOUSE DAMAGED
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *SR--12351* FBA Warehouse Damaged < MID: 5566778800 >
+Body:
+  Merchant ID: 5566778800
+  SPS Case ID: 1301856634400
+  FNSKU: X009YZAB88
+  Quantity: 3
+
+  Transaction ID: 485630300030
+
+Result: ✅ CLASSIFIED → Assign to harikks
+Bucket: Warehouse Damaged
+
+--- REJECTED ---
+
+Title: *SR--12351* FC Damaged Inventory < MID: 5566778800 >
+Body:
+  Merchant ID: 5566778800
+  FNSKU: X009YZAB88
+  Units damaged in warehouse.
+
+Result: ❌ Missing: SPS Case ID, Quantity
+
+
+================================================================================
+8. ORDER RELATED - CUSTOMER DAMAGED RETURN
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *SR--12352* Order Related Customer Damaged < MID: 6677889900 >
+Body:
+  Merchant ID: 6677889900
+  SPS Case ID: 1301856634500
+  Order ID: 408-3363912-8812310
+  Prior Credit Check: Yes
+  Refund Issued Date: 15/06/2026
+
+Result: ✅ CLASSIFIED → Assign to ankiwkum
+Bucket: Damages
+
+--- REJECTED ---
+
+Title: *SR--12352* Customer Return Damaged < MID: 6677889900 >
+Body:
+  Merchant ID: 6677889900
+  Order ID: 408-3363912-8812310
+  Customer returned item in damaged condition.
+
+Result: ❌ Missing: SPS Case ID, Prior Credit Check, Refund Issued date
+
+
+================================================================================
+9. ORDER RELATED - LOST IN TRANSIT
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *SR--12353* Order Lost in Transit < MID: 7788990011 >
+Body:
+  Merchant ID: 7788990011
+  SPS Case ID: 1301856634600
+  Order ID: 402-5431835-7456326
+  Prior Credit Check: Yes
+  Refund Issued Date: 20/05/2026
+
+Result: ✅ CLASSIFIED → Assign to ankiwkum
+Bucket: Lost in Transit
+
+--- REJECTED ---
+
+Title: *SR--12353* Order Not Delivered < MID: 7788990011 >
+Body:
+  Order ID: 402-5431835-7456326
+  This order was never delivered to customer. Refund was issued.
+
+Result: ❌ Missing: Merchant ID, SPS Case ID, Prior Credit Check, Refund Issued date
+
+
+================================================================================
+10. EF - SAFE-T DENIAL DISPUTE (Account Management / SR / SVM)
+================================================================================
+
+--- ACCEPTED (All fields → Lookup SAFET Data → Assign) ---
+
+Title: *TEST* EF- Easy ship <Account management> "Escalation for SAFE-T Denied" <MID: 193072994612>
+Body:
+  1. MID: 193072994612
+  2. Order ID: 403-1813030-0215537
+  B). Reason code from dashboard: INSPECTED_IMAGE_MISMATCH
+  b). Yoda Dashboard attached? (Y/N): Y
+  4. First level deep dives done as per SR Escalation wiki?: (Y/N) Yes,
+     seller has shipped the replacement still why it is showing as seller not debited
+  Wiki: https://w.amazon.com/bin/view/IN_Reimbursement_Escalation
+  4. For CTR related denials: Not Applicable
+  5. Provide detailed comments: Seller has shipped the replacement still
+     it is showing as seller not debited
+
+Result: ✅ EF Channel → Lookup SAFET Data → Assign to bamulyao
+        (because INSPECTED_IMAGE_MISMATCH → bamulyao)
+
+--- REJECTED (Missing fields → EF Wiki Not Followed) ---
+
+Title: *TEST* EF- MFN <Account management> "Escalation for SAFE-T Denied" <MID: 179301>
+Body:
+  1. MID: 179301
+  2. Order ID: 403-2253652-2047521
+  3. Seller's VOS: Customer returned wrong item, seller wants reimbursement.
+
+Result: ❌ Missing: Reason Code, Yoda Dashboard, Deep Dive Done
+Action: Resolve with EF wiki-not-followed template
+
+
+================================================================================
+11. EF - SAFE-T DENIAL (SP-SEED EXCEPTION)
+================================================================================
+
+--- ACCEPTED (SP-SEED skips field checks → straight to lookup) ---
+
+Title: *TEST* <SP-SEED> "Escalation for SAFE-T Denied" <MID: 179591252312>
+Body:
+  1. MID: 179591252312
+  2. Order ID: 407-0210416-2475537
+  3. Provide detailed comments on why escalation and reimbursement is required:
+     Do not copy paste seller's VOS only please do a first level deep dive
+     and mention why escalation or reimbursement required.
+
+  VOS entered below
+
+Result: ✅ SP-SEED Exception → Skip field check → Lookup SAFET Data → Assign
+        (looks up order 407-0210416-2475537 in Excel, finds Channel + Resolution)
+
+--- ACCEPTED (Even minimal info works for SP-SEED) ---
+
+Title: *TEST* <SP-SEED> "Escalation for SAFE-T Denied" <MID: 12345>
+Body:
+  1. MID: 12345
+  2. Order ID: 171-0929509-6073959
+
+Result: ✅ SP-SEED → Lookup → Assign (only needs MID + Order ID)
+
+
+================================================================================
+12. EF - SAFE-T UNABLE TO FILE CLAIM
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *TEST* <Account Management> "Escalation for SAFE-T Unable to file claim" <20907492012>
+Body:
+  1. MID: 20907492012
+  2. Order ID: 403-2253052-2047521
+  3. Screenshot of the order(s): Yes attached
+  4. 1st Level Deep Dive done as per Section 3.2 of the wiki: (Y/N) Yes done,
+     issue not related to seller
+  5. Optional:
+     a. Images of Return Mailing Label: Attached
+     b. Images of returned item: Attached
+     c. Detailed reason for filing claim: Customer returned wrong item
+     d. Video evidence: Not applicable
+
+Result: ✅ EF Channel → Lookup SAFET Data → Assign
+
+--- REJECTED ---
+
+Title: *TEST* <Account Management> "Escalation for SAFE-T Unable to file claim" <MID: 99999>
+Body:
+  1. MID: 99999
+  2. Order ID: 403-2253052-2047521
+  Unable to file SAFE-T claim for this order.
+
+Result: ❌ Missing: Order Screenshot, Deep Dive Done
+
+
+================================================================================
+13. EF - SAFE-T CLAWBACK
+================================================================================
+
+--- ACCEPTED ---
+
+Title: *TEST* EF- Easy ship <Account management> "Escalation for SAFE-T Clawback" <MID: 55555>
+Body:
+  1. MID: 55555
+  2. Order ID: 402-1234567-1234567
+     171-9876543-2109876
+  3. Reason for Escalation: Clawback was applied incorrectly.
+     Seller has valid proof of delivery and buyer confirmed receipt.
+
+Result: ✅ EF Channel → Lookup SAFET Data → Assign
+
+--- REJECTED ---
+
+Title: *TEST* <Account Management> "Escalation for SAFE-T Clawback" <MID: 55555>
+Body:
+  1. MID: 55555
+  2. Order ID: 402-1234567-1234567
+  Clawback needs to be reversed.
+
+Result: ❌ Missing: Reason for Escalation
+
+
+================================================================================
+14. EF - ORDER IDs ATTACHED (Manual Check Required)
+================================================================================
+
+--- TRIGGERS MANUAL CHECK ---
+
+Title: *TEST* EF- MFN <Account management> "Escalation for SAFE-T Denied" <MID: 88888>
+Body:
+  1. MID: 88888
+  2. Order ID: Attached
+  B). Reason code from dashboard: CTR_POLICY_VIOLATION
+  b). Yoda Dashboard attached? (Y/N): Y
+  4. First level deep dives done: Y
+  5. Comments: Multiple orders affected, list attached.
+
+Result: ⚠️ "Order IDs in attachment — Check manually"
+        Desktop notification appears on scan completion.
+
+
+================================================================================
+15. WEIGHT / DIMENSION / FEES (OUT OF SCOPE)
+================================================================================
+
+--- TRIGGERS OUT OF SCOPE ---
+
+Title: *SR--12354* Weight Handling Fee Issue < MID: 1111222233 >
+Body:
+  Merchant ID: 1111222233
+  The weight handling fee charged is incorrect.
+  Actual weight is 500g but charged for 2kg.
+  Weight mismatch issue.
+
+Result: 🚫 REDIRECT → Auto-Resolve Out of Scope
+        Comment: Fees redirect blurb (reach out to Easy Ship Program / T4 Credit Ops)
+
+--- DOES NOT TRIGGER (template line) ---
+
+Title: *SP--12355* MFI < Merchant ID: 9999888877 >
+Body:
+  Issue: (MFI /Removal order related/ Warehouse lost /Fees charged in error/ "Select only one")
+  Shipment ID: FBA15LRHVTK2
+  Merchant ID: 9999888877
+  SPS Case ID: 123456
+  FNSKU: X001ABC
+  Quantity: 10
+
+Result: ✅ CLASSIFIED as MFI (fees keyword on template selection line = ignored)
+
+
+================================================================================
+16. A-Z CLAIMS (OUT OF SCOPE)
+================================================================================
+
+--- TRIGGERS OUT OF SCOPE ---
+
+Title: *SR--12356* A-Z Claim Denied < MID: 4444555566 >
+Body:
+  Merchant ID: 4444555566
+  Order ID: 408-1234567-8901234
+  A-Z claim was denied. Seller wants it overturned.
+
+Result: 🚫 REDIRECT → Auto-Resolve Out of Scope (A-Z Claims)
+        Comment: "If your issue is about A-Z claims, please note that this is
+                  out of scope for Seller Reimbursement team. Please reach out
+                  to concerned POC. We are unaware of the same."
+
+--- ALSO TRIGGERS ---
+
+Body containing any of:
+  "a-to-z claims were rejected"
+  "A2Z guarantee claim denied"
+  "AZ claims need review"
+  "a to z claim"
+
+
+================================================================================
+17. SAFE-T CLAIM DISPUTE (Regular, not EF)
+================================================================================
+
+--- NOT EF (no channel keyword, no EF title pattern) ---
+
+Title: *SP--12357* SAFE-T Claim Review < MID: 7777888899 >
+Body:
+  Case ID: 1301856634700
+  Seller ID: 7777888899
+  Order ID: 408-9999888-7776665
+  SAFE-T Claim ID: 93512-10510-1119413
+  Seller refused to accept return due to damage.
+
+Result: CLASSIFIED as "SAFE-T Claim Dispute" (regular, assignee = null)
+        No action button (needs manual review or assignee to be set)
+
+
+================================================================================
+18. LEADERSHIP ESCALATION (Not EF)
+================================================================================
+
+--- NOT EF (no EF title pattern, just mentions SAFE-T) ---
+
+Title: Selling Partner's Escalation to L8+ Leader Seller ID: 9712854226
+Body:
+  A. Merchant ID: 9712854226
+  B. SPS case ID: 13083210242
+  C. Issue: MFI
+  D. "Reason for escalation: Too-line escalation — Seller threatening to leave platform."
+  SAFE-T claim has been denied.
+
+Result: CLASSIFIED as "Missing From Inbound (MFI)" or "SAFE-T Claim Dispute"
+        NOT classified as EF (doesn't have "Escalation for SAFE-T Denied" pattern)
+
+
+================================================================================
+BUCKET SELECTION EXAMPLES
+================================================================================
+
+The resolve modal bucket is determined by scanning keywords in the ticket:
+
+Example 1:
+  Text: "removal order damaged, unboxing video shows tampered box"
+  Matched keywords: removal(Removal Damages), damaged(Removal Damages+Damages),
+                    unboxing(Removal Damages)
+  Selected Bucket: "Removal Damages" (3 matches)
+
+Example 2:
+  Text: "warehouse lost inventory, FNSKU reconciliation shows missing"
+  Matched keywords: warehouse(Warehouse Lost), lost(Warehouse Lost),
+                    inventory(Warehouse Lost), missing(Warehouse Lost),
+                    reconciliation(Warehouse Lost)
+  Selected Bucket: "Warehouse Lost" (5 matches)
+
+Example 3:
+  Text: "customer returned item in damaged condition, refund issued"
+  Matched keywords: return(Damages), damaged(Damages), condition(Damages),
+                    returned(Damages), refund(Damages), customer(Damages)
+  Selected Bucket: "Damages" (6 matches)
+
+Example 4:
+  Text: "clawback deducted from account, reimbursement retracted"
+  Matched keywords: clawback(Clawback Related Disputes),
+                    reimbursement retracted(Clawback Related Disputes),
+                    account(Clawback Related Disputes)
+  Selected Bucket: "Clawback Related Disputes" (3 matches)
+
+Example 5:
+  Text: "item switched, received different item in removal"
+  Matched keywords: item switched(Switcheroo), different item(Switcheroo),
+                    removal(Switcheroo)
+  Selected Bucket: "Switcheroo" (3 matches)
+
+Example 6:
+  Text: "FMV calculation is wrong, damage less reimbursed than fair market value"
+  Matched keywords: fmv(Re-evaluation), fair market value(Re-evaluation),
+                    damage less reimbursed(Re-evaluation)
+  Selected Bucket: "Re-evaluation" (3 matches)
+
+
+================================================================================
+ASSIGNEE MAPPING SUMMARY
+================================================================================
+
+FBA Categories:
+  Removals (all types)                    → nitheraj
+  MFI                                     → vishancm
+  Warehouse Lost/Damaged                  → harikks
+  Order Related (all types)               → ankiwkum
+  SAFE-T Claim Dispute                    → (no assignee, manual)
+
+EF Channel (from SAFET Excel lookup):
+  Channel = MFN                           → dhrubora
+  INSPECTED_FORWARD_LEG_INSPECTION_FAILED → dhrubora
+  INSPECTED_IMAGE_MISMATCH               → bamulyao
+  SECURED_RETURN_RTS_IMAGES_MISMATCH     → snshekar
+  SELLER_ABUSIVE_VERIFIED                → snshekar
+  SELLER_ABUSIVE_VERIFIED_BLOCKED        → snshekar
+  CTR (any pattern)                      → mansilko
+  RNOTR_SELLER_REFUSED_DISPOSED          → khursheq
+  WINDOW_EXPIRED                         → snshekar
+  Re-evaluation                          → khursheq
+  Any other / Default                    → mansilko
+
+Out of Scope:
+  Fees/Weight/Dimension                   → (no assignee, auto-resolve)
+  A-Z Claims                             → (no assignee, auto-resolve)
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================

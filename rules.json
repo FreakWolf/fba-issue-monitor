@@ -703,6 +703,19 @@
     "safe-t unable to file",
     "safe-t clawback"
   ],
+  "bucketKeywords": {
+    "Switcheroo": ["buyer", "return", "abuse", "window", "disputing", "returned", "review", "policy", "issued", "expired", "refunds", "debited", "suspected", "controllable", "customer", "rejected", "delivery", "removal", "unboxing", "different item", "item switched", "item swapped", "item changed", "changed item"],
+    "Lost in Transit": ["return", "delivery", "tracking", "delivered", "shipment", "returned", "delivery marked", "refused", "attempt", "delivery attempted", "rejected", "policy", "lost", "missing", "lost in transit"],
+    "MFI": ["shipment", "carrier", "partnered", "delivery", "fnsku", "missing", "challan", "tracking", "epod", "fulfillment center", "stock", "transfer", "stamp", "electronic pod", "warehouse", "short shipped"],
+    "Removal Lost": ["removal missing", "lost shipment", "inventory", "delivery", "warehouse", "fnsku", "delivered", "unboxing", "asin", "bluedart", "short", "marked", "pending", "accessory"],
+    "Removal Damages": ["removal", "damaged", "fnsku", "asin", "shipment", "unboxing", "disposition", "tracking", "missing", "lost inventory", "lost shipment"],
+    "Damages": ["damaged", "return", "removal", "damage", "condition", "returned", "policy", "refund", "buyer", "customer", "window", "loss", "missing", "executive", "returns", "business", "pending", "inventory", "handling"],
+    "Clawback Related Disputes": ["clawback", "reimbursement deducted", "buyer", "lost", "fees", "flex", "removal", "warehouse", "charged", "refund", "account", "ship", "weight", "claimed", "audit", "reimbursement retracted", "claw back", "clawed back"],
+    "MFN": ["return", "delivery", "buyer", "attempt", "refund", "tracking", "never", "delivered", "executive", "issued", "customer", "rejected", "window", "policy", "returned", "disputing", "mfn", "self-ship"],
+    "Warehouse Lost": ["lost", "removal", "warehouse", "fnsku", "inventory", "missing", "asin", "reconciled", "damaged", "fees", "charged", "disposed", "delivered", "return", "pending", "found", "reconciliation"],
+    "Re-evaluation": ["fmv", "fair market value", "damage less reimbursed", "re-evaluation of reimbursement", "less reimbursed", "more reimbursement", "fmv calculation"],
+    "Warehouse Damaged": ["disposed warehouse", "inventory", "asin", "fnsku", "lost", "missing", "transit", "shipment", "delivered", "defective", "ledger", "returned", "cancelled", "disposal", "pickup", "warehouse damaged item"]
+  },
   "fieldAliases": {
     "Removal Order ID": [
       "removal order id",

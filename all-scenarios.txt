@@ -1,0 +1,399 @@
+FBA ISSUE MONITOR - ALL SCENARIOS & ACTIONS
+=============================================
+Last Updated: August 2026
+
+This document describes every scenario the extension handles,
+what action it takes, and what comment/blurb is sent.
+
+
+================================================================================
+SCENARIO 1: WEIGHT / DIMENSION / FEES → OUT OF SCOPE (Auto-Resolve)
+================================================================================
+
+Trigger: Any mention of weight/dimension/fees keywords in the ticket
+         (e.g., weight handling fee, weight mismatch, dimension mismatch,
+         fba fees, fee dispute, seller flex fees, incorrect fee, etc.)
+
+Exception: Skipped if keyword only appears on a template selection line
+           (e.g., "MFI /Removal order related/ Warehouse lost /Fees charged in error/ Select only one")
+           Skipped if ticket is EF SAFE-T context (clawback/claw back)
+
+Action: Auto-resolve with comment + label + resolve modal
+
+Comment sent:
+  "Hii Team,
+
+  Seller reimbursement team no longer handles any Fees reimbursement's process.
+  We have already updated the same in our Seller Reimbursement Escalation wiki:
+  https://w.amazon.com/bin/view/IN_Reimbursement_Escalation
+
+  For ES:
+  Easy ship Fee related concerns and/or their Claw back related SAFE-T issues
+  are out of Seller Reimbursement's scope. Please reach out to following CTI:
+
+  C: Easy Ship
+  T: Program Problem
+  I: Weight Mismatch
+  Group: Amazon Easy Ship Program
+
+  For FBA/Seller Flex Fees issues:
+  For escalations, please reach out to the T4 Credit Ops team by using the CTI:
+
+  C: Fulfillment By Amazon
+  T: Shipping Claims
+  I: Fees Escalations
+
+  Note: Tickets have to be assigned only to this Group: T4 Credit Ops Project IN."
+
+Label: "Issue Not Handled by SR"
+Bucket: Fees Charged in Error
+Sub Bucket: Issue Not handled by SR
+Claim Status: Denied
+Reimbursement Amount: 0
+
+
+================================================================================
+SCENARIO 2: A-Z CLAIMS → OUT OF SCOPE (Auto-Resolve)
+================================================================================
+
+Trigger: Any mention of A-Z claims keywords (case insensitive):
+         a-z claim, a-to-z claims, a to z claim, a2z claims,
+         a-z guarantee, a-z guarantee claims, az claims
+
+Action: Auto-resolve with comment + label + resolve modal
+
+Comment sent:
+  "If your issue is about A-Z claims, please note that this is out of scope
+  for Seller Reimbursement team. Please reach out to concerned POC.
+  We are unaware of the same."
+
+Label: "Issue Not Handled by SR"
+Bucket: General Enquiry
+Sub Bucket: Issue Not handled by SR
+Claim Status: Denied
+Reimbursement Amount: 0
+
+
+================================================================================
+SCENARIO 3: EF CHANNEL - WIKI NOT FOLLOWED (Auto-Resolve)
+================================================================================
+
+Trigger: EF Channel ticket (EasyShip/SellerFlex/MFN + SAFE-T) with missing
+         mandatory fields. NOT applicable to SP-SEED tickets.
+
+Mandatory fields for EF Denial Dispute:
+  - Merchant ID (or MID)
+  - Order ID
+  - Reason Code
+  - Yoda Dashboard
+  - Deep Dive Done
+
+Action: Auto-resolve with EF wiki-not-followed comment
+
+Comment sent:
+  "Hi,
+
+  SIM request is submitted without following the wiki guidelines/including all
+  mandatory details. This leads to delays and inefficiencies. To ensure prompt response:
+
+  Please review the reimbursement escalation requirements at:
+  https://w.amazon.com/bin/view/IN_Reimbursement_Escalation
+
+  Please follow the template below and create a new SIM with all details:
+
+  { SIM Title}
+  <Team Name> "Escalation for SAFE-T Denied" <MID>
+
+  {SIM Body}
+
+  1. MID*: (Mandatory for all teams)
+  2. Order ID*: (Share only order ID related to the claims do not share claim IDs)
+     Order ID format:
+     [Enter order IDs line after line only without any commas or any other symbols]
+     *Eg: Use below format only*
+     402-XXXXXXX-XXXXXXX
+     403-XXXXXXX-XXXXXXX
+     Reason code from dashboard *: (*Mandatory for AMs (SR and SVM SIMs not for SP SEED))
+  3. Yoda Dashboard attached? (Y/N):
+  4. First level deep dives done as per SR Escalation wiki?: (Y/N)
+  4. For CTR related denials, please attach Network abuse proof or buyer abuse SIM/ARM SIM*
+  5. Provide detailed comments on why escalation and reimbursement is required:
+
+  Next Steps for requester:
+  Please raise a new valid SIM after following all steps in the concerned wiki.
+
+  Ensure all mandatory requirements listed in the wiki are included while filing
+  an escalation SIM.
+
+  Thanks"
+
+Label: "Wiki/Template not followed"
+Bucket: (category bucket name)
+Sub Bucket: Invalid (Incomplete Information)
+Claim Status: Denied
+Reimbursement Amount: 0
+
+
+================================================================================
+SCENARIO 4: EF CHANNEL - SP-SEED EXCEPTION (Lookup + Assign)
+================================================================================
+
+Trigger: SP-SEED ticket with SAFE-T + EF title pattern
+         (e.g., "SP-SEED Escalation for SAFE-T Denied")
+
+SP-SEED Exception: Skip mandatory field checks. Only needs MID + Order IDs.
+
+Action: Look up Order IDs in uploaded SAFET Excel data
+        → Determine Channel (majority) + Final Resolution (majority)
+        → Assign to correct owner based on reason code mapping
+
+Reason Code → Assignee Mapping:
+  Channel: MFN (any reason code)              → dhrubora
+  INSPECTED_FORWARD_LEG_INSPECTION_FAILED     → dhrubora
+  INSPECTED_IMAGE_MISMATCH                    → bamulyao
+  SECURED_RETURN_RTS_IMAGES_MISMATCH          → snshekar
+  SELLER_ABUSIVE_VERIFIED                     → snshekar
+  SELLER_ABUSIVE_VERIFIED_BLOCKED             → snshekar
+  CTR (any CTR pattern)                       → mansilko
+  RNOTR_SELLER_REFUSED_DISPOSED               → khursheq
+  Re-evaluation (granted but wants more)      → khursheq
+  WINDOW_EXPIRED                              → snshekar
+  Any other reason codes                      → mansilko
+
+
+================================================================================
+SCENARIO 5: EF CHANNEL - VALID TICKET (Lookup + Assign)
+================================================================================
+
+Trigger: EF Channel ticket with all mandatory fields present
+         (from Account Management, SR, SVM, or other teams)
+
+Action: Same as SP-SEED — look up Order IDs in SAFET Excel data,
+        determine Channel + Final Resolution, assign to correct owner.
+
+
+================================================================================
+SCENARIO 6: EF CHANNEL - ORDER IDs ATTACHED (Manual Check)
+================================================================================
+
+Trigger: EF ticket where Order ID value says "Attached" or similar
+         (meaning orders are in a file attachment, not typed inline)
+
+Action: Show "Check manually" button + Desktop notification on scan completion
+        "Order IDs are in an attachment. Please open the SIM, download the
+         attachment, check the Order IDs manually, and assign to the correct owner."
+
+
+================================================================================
+SCENARIO 7: FBA - WIKI NOT FOLLOWED (Auto-Resolve)
+================================================================================
+
+Trigger: Any FBA category (Removals, MFI, Warehouse, Order Related) where
+         mandatory fields are missing.
+
+Action: Auto-resolve with generic wiki-not-followed comment
+
+Comment sent:
+  "Hi Team,
+
+  This SIM cannot be processed as the following mandatory details are missing
+  or not provided as per the required template:
+
+  • [Missing Field 1]
+  • [Missing Field 2]
+  • ...
+
+  As per the standard operating procedure, all reimbursement SIMs must follow
+  the prescribed format with complete details. This SIM is being resolved due
+  to non-compliance with the template.
+
+  Kindly raise a NEW SIM using the below format:
+
+  [Sample format for the specific category]
+
+  Claim window: [X] days from [event]. Please raise the new SIM within this
+  window to avoid claim denial.
+
+  Reference SIM: [Ticket Title]
+
+  Refer to the Seller Reimbursement Escalation wiki:
+  https://w.amazon.com/bin/view/IN_Reimbursement_Escalation
+
+  Thanks for your cooperation."
+
+Label: "Wiki/Template not followed"
+Bucket: (category bucket name)
+Sub Bucket: Invalid (Incomplete Information)
+Claim Status: Denied
+Reimbursement Amount: 0
+
+
+================================================================================
+SCENARIO 8: FBA - CLASSIFIED + ALL FIELDS PRESENT (Auto-Assign)
+================================================================================
+
+Trigger: Ticket classified to a specific category with all mandatory fields present.
+
+Action: Auto-assign to the designated person.
+
+Category → Assignee:
+  Removal Shipment Lost (Not Delivered)           → nitheraj
+  Removal Shipment Lost (Delivered not received)  → nitheraj
+  Removal Order Damaged                           → nitheraj
+  Removal Missing/Switcheroo                      → nitheraj
+  Missing From Inbound (MFI)                      → vishancm
+  Warehouse Lost                                  → harikks
+  Warehouse Damaged                               → harikks
+  Order Related - Customer Damaged Return         → ankiwkum
+  Order Related - Lost In Transit                 → ankiwkum
+  Order Related - Delivery Dispute / RTO          → ankiwkum
+
+
+================================================================================
+SCENARIO 9: AMBIGUOUS CLASSIFICATION
+================================================================================
+
+Trigger: Two categories score within 15 points of each other.
+
+Action: Show both categories in the popup. If both are out-of-scope,
+        offer auto-resolve. Otherwise, show the top category's action.
+
+
+================================================================================
+SCENARIO 10: UNCLASSIFIABLE
+================================================================================
+
+Trigger: No category scored above the minimum confidence threshold (40 points).
+
+Action: No action button shown. Manual review required.
+
+
+================================================================================
+MANDATORY FIELDS BY CATEGORY
+================================================================================
+
+Removal Lost (Not Delivered / Delivered not received):
+  - Removal Order ID
+  - Tracking ID
+  - SPS Case ID
+  - FC ID (or FCID)
+  - FNSKU
+  - Quantity
+  Optional: POD
+
+Removal Damaged:
+  - Removal Order ID
+  - Tracking ID
+  - FC ID
+  - Case ID
+  - FNSKU
+  - Unboxing Video
+  - Product Images
+  - POD
+
+Removal Missing/Switcheroo:
+  - Removal Order ID
+  - Tracking ID
+  - FC ID
+  - SPS Case ID
+  - FNSKU
+  - Unboxing Video
+  - Product Images
+  - POD
+
+MFI (Missing From Inbound):
+  - Shipment ID
+  - Merchant ID
+  - SPS Case ID
+  - FNSKU
+  - Quantity
+  Optional: Tracking ID, STN, EPOD, Invoice
+
+Warehouse Lost / Damaged:
+  - Merchant ID
+  - SPS Case ID
+  - FNSKU
+  - Quantity
+  Optional: Transaction ID
+
+Order Related (Customer Damaged / Lost in Transit):
+  - Merchant ID
+  - SPS Case ID
+  - Order ID
+  - Prior Credit Check
+  - Refund Issued date
+
+Order Related (Delivery Dispute / RTO):
+  - Merchant ID
+  - Order ID
+  Optional: SPS Case ID, Refund Issued date
+
+EF - SAFE-T Denial Dispute:
+  - Merchant ID (MID)
+  - Order ID
+  - Reason Code
+  - Yoda Dashboard
+  - Deep Dive Done
+  Optional: CTR Proof, Comments
+
+EF - SAFE-T Unable to File:
+  - Merchant ID (MID)
+  - Order ID
+  - Order Screenshot
+  - Deep Dive Done
+  Optional: Return Mailing Label Images, Returned Item Images, Reason for Filing, Video
+
+EF - SAFE-T Clawback:
+  - Merchant ID (MID)
+  - Order ID
+  - Reason for Escalation
+
+
+================================================================================
+AUTO-MODE BEHAVIOR
+================================================================================
+
+When Auto Mode is enabled (toggle in popup):
+
+Every 5 minutes:
+  1. Check if system is locked (skip if yes)
+  2. Scan unassigned tickets
+  3. Validate scan quality (reject if descriptions too short)
+  4. For each ticket, take action in this priority:
+     a. Fees/Weight → Auto-resolve out of scope
+     b. A-Z Claims → Auto-resolve out of scope
+     c. EF Channel:
+        - SP-SEED: Skip field check → SAFET lookup → Assign
+        - Others: Check fields → Wiki not followed OR SAFET lookup → Assign
+     d. FBA Wiki Not Followed → Auto-resolve with template
+     e. FBA Classified + Fields Present → Auto-assign
+  5. Notify if any EF tickets have "Order IDs: Attached"
+
+Prerequisites:
+  - Chrome must be running
+  - SAFET Excel must be uploaded (for EF assignments)
+  - System must not be locked
+
+
+================================================================================
+SAFET EXCEL UPLOAD
+================================================================================
+
+How to use:
+  1. Download SAFET data from SharePoint/Yoda (daily)
+  2. Open extension popup
+  3. Click "Upload SAFET Excel" button
+  4. Select the .xlsx file
+  5. Extension reads Order ID, Channel, and Final Resolution columns
+  6. Data stored locally for instant lookups
+
+File format expected:
+  - First few rows may be title/warning (auto-detected)
+  - Header row must contain "Order ID" and "Channel"
+  - "Final Resolution" column used for reason code mapping
+  - ~40,000 rows typical
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================

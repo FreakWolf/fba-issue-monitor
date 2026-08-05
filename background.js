@@ -77,6 +77,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.storage.local.get(["autoMode"]).then(s => sendResponse({ autoMode: s.autoMode || false }));
     return true;
   }
+  if (msg.action === "detectBucket") {
+    loadRules().then(rules => {
+      const bucket = detectBucket(msg.text, rules);
+      sendResponse({ bucket });
+    });
+    return true;
+  }
 });
 
 async function runScan() {
@@ -717,6 +724,7 @@ async function runAutoMode() {
         const cat = cls.category;
         console.log(`[AutoMode] Wiki not followed: ${issueId}`);
         const comment = buildWikiNotFollowedComment(rules, cat, finding.fieldCheck, finding.title);
+        const detectedBucket = detectBucket(finding.rawDescription, rules) || cat.bucketName;
         const result = await fullAutoResolveBg(issueId, {
           commentText: comment,
           labelName: rules.labels.wikiNotFollowed,
@@ -725,7 +733,7 @@ async function runAutoMode() {
           resolveConfig: {
             actionType: "wiki_not_followed",
             summary: "wiki not followed",
-            bucket: cat.bucketName,
+            bucket: detectedBucket,
             claimStatus: "Denied",
             subBucket: "Invalid (Incomplete Information)",
             reimbursementAmount: "0"
@@ -770,4 +778,27 @@ function buildWikiNotFollowedComment(rules, category, fieldCheck, title) {
   comment = comment.replace("{CLAIM_WINDOW_FROM}", (category.claimWindowFrom || "").replace(/_/g, " "));
   comment = comment.replace("{TITLE}", title || "");
   return comment;
+}
+
+// Detect the best bucket name based on keywords in the ticket text
+function detectBucket(text, rules) {
+  const bucketKeywords = rules.bucketKeywords || {};
+  const normalized = (text || "").toLowerCase();
+  let bestBucket = null;
+  let bestScore = 0;
+
+  for (const [bucket, keywords] of Object.entries(bucketKeywords)) {
+    let score = 0;
+    for (const kw of keywords) {
+      if (normalized.includes(kw.toLowerCase())) {
+        score++;
+      }
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestBucket = bucket;
+    }
+  }
+
+  return bestBucket; // Returns null if no keywords matched
 }

@@ -210,14 +210,14 @@ async function handleActionClick(e) {
     const commentText = generateWikiNotFollowedComment(finding);
     const labelName = rulesData.labels?.wikiNotFollowed || "Wiki/Template not followed";
 
-    // Get bucketName from classified category
+    // Get bucketName from keyword detection or category
     const cls = finding.classification || {};
     const category = cls.status === "CLASSIFIED" ? cls.category :
                      (cls.status === "AMBIGUOUS" ? cls.top2?.[0]?.category : null);
-    const bucketForResolve = category?.bucketName || "General Enquiry";
+    const detectedBucket = detectBucketLocal(finding.rawDescription || "", rulesData) || category?.bucketName || "General Enquiry";
     const categoryName = category?.name || "Unknown";
 
-    if (!confirm(`Auto-resolve as WIKI NOT FOLLOWED?\n\nCategory: ${categoryName}\nBucket: "${bucketForResolve}"\nSub Bucket: "Invalid (Incomplete Information)"\n\n1. Post format-request comment\n2. Auto-submit comment\n3. Apply label: "${labelName}"\n4. Fill & Submit Resolve Modal\n\nNO assignment.\n\nProceed?`)) return;
+    if (!confirm(`Auto-resolve as WIKI NOT FOLLOWED?\n\nCategory: ${categoryName}\nBucket: "${detectedBucket}"\nSub Bucket: "Invalid (Incomplete Information)"\n\n1. Post format-request comment\n2. Auto-submit comment\n3. Apply label: "${labelName}"\n4. Fill & Submit Resolve Modal\n\nNO assignment.\n\nProceed?`)) return;
 
     btn.textContent = "⏳ Auto-resolving..."; btn.disabled = true;
     const res = await chrome.runtime.sendMessage({
@@ -230,7 +230,7 @@ async function handleActionClick(e) {
         resolveConfig: {
           actionType: "wiki_not_followed",
           summary: "wiki not followed",
-          bucket: bucketForResolve,
+          bucket: detectedBucket,
           claimStatus: "Denied",
           subBucket: "Invalid (Incomplete Information)",
           reimbursementAmount: "0"
@@ -503,4 +503,19 @@ function extractOrderIdsFromText(text) {
   const re = /\b\d{3}-\d{7}-\d{7}\b/g;
   const matches = (text || "").match(re) || [];
   return [...new Set(matches)];
+}
+
+function detectBucketLocal(text, rules) {
+  const bucketKeywords = rules?.bucketKeywords || {};
+  const normalized = (text || "").toLowerCase();
+  let bestBucket = null;
+  let bestScore = 0;
+  for (const [bucket, keywords] of Object.entries(bucketKeywords)) {
+    let score = 0;
+    for (const kw of keywords) {
+      if (normalized.includes(kw.toLowerCase())) score++;
+    }
+    if (score > bestScore) { bestScore = score; bestBucket = bucket; }
+  }
+  return bestBucket;
 }

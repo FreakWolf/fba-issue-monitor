@@ -1,4 +1,4 @@
-const POLL_INTERVAL_MIN = 5;
+const POLL_INTERVAL_MIN = 10;
 const DASHBOARD_ID = "2884899d-54a7-409b-9e88-b7ca4b0416ba";
 const SEARCH_URL = `https://issues.amazon.com/issues/search?q=assignee%3A(nobody)+in%3A(${DASHBOARD_ID})+status%3A(Open)+folderType%3A(Default)&sort=score+desc`;
 const MAX_HISTORY = 100;
